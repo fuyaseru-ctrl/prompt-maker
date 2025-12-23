@@ -6,32 +6,12 @@ st.set_page_config(page_title="AIプロンプト製造機", page_icon="🚀", la
 # --- セッション状態の初期化 ---
 if 'mode' not in st.session_state:
     st.session_state.mode = "📈 売買・エントリー"
-if 'input_text' not in st.session_state:
-    st.session_state.input_text = ""
 
 # --- 関数：モード切替 ---
 def set_mode(new_mode):
     st.session_state.mode = new_mode
 
-# --- 関数：テンプレート挿入 ---
-def update_text_area():
-    selection = st.session_state.template_selector
-    
-    # テンプレートの定義
-    templates = {
-        "（自由入力・空白）": "",
-        "📝 個別株（チャート・売買相談）": "【銘柄名/コード】\n\n【検討中の足種】日足・週足・5分足\n【現在の状況】上昇トレンド・保ち合い・下落中\n【気になっている点】\n",
-        "💰 保有株（損切り・利確・ナンピン）": "【銘柄名/コード】\n\n【取得単価】 円\n【現在の株価】 円\n【保有株数】 株\n【現在の損益】含み益・含み損\n【悩み・相談】\n",
-        "📰 ニュース・材料分析": "【銘柄名/コード】\n\n【ニュースのタイトル】\n\n【ニュースの内容（コピペ）】\n\n【自分の解釈・疑問】\n",
-        "🏢 決算・業績分析": "【銘柄名/コード】\n\n【決算期】Q1・Q2・Q3・本決算\n【発表された数字】売上高+〇%、営業益-〇%\n【コンセンサス予想との比較】良かった・悪かった\n【市場の反応】PTSで上昇・下落\n",
-        "🌏 市場全体・指数の相談": "【対象】日経平均・TOPIX・マザーズ・ドル円\n【期間】短期・中期・長期\n【気になっているニュース】米国の金利・雇用統計など\n"
-    }
-    
-    # 選択されたテンプレートをテキストエリアにセット
-    if selection in templates:
-        st.session_state.input_text = templates[selection]
-
-# --- キャラクター定義（計60人規模） ---
+# --- キャラクター定義 ---
 chars_entry = [
     "順張り隊長（上昇トレンドの初動しか狙わない）",
     "逆張り名人（暴落のリバウンド狙い専門）",
@@ -269,42 +249,50 @@ selected_question_body = ""
 if selected_template_raw != "（自分で入力する）":
     selected_question_body = selected_template_raw.split("】 ")[1]
 
-# --- 補足情報の入力サポート機能（追加！） ---
+# --- 入力エリア（シンプル化！） ---
 st.markdown("---")
-st.write("3. 銘柄名やニュース、補足情報を入力してください（必須）")
+st.write("3. 必要な情報を入力してください（分からない箇所は空欄でもOK！）")
 
-# テンプレート選択プルダウン
-input_template_options = [
-    "（自由入力・空白）",
-    "📝 個別株（チャート・売買相談）",
-    "💰 保有株（損切り・利確・ナンピン）",
-    "📰 ニュース・材料分析",
-    "🏢 決算・業績分析",
-    "🌏 市場全体・指数の相談"
-]
-st.selectbox(
-    "💡 何を書けばいいか迷ったら、ここから書き方を選んでください！",
-    input_template_options,
-    key="template_selector",
-    on_change=update_text_area
-)
+# シンプルな3点入力セット
+col_input1, col_input2 = st.columns([1, 1])
 
-# テキストエリア（session_stateと連携）
-input_text = st.text_area(
-    "入力エリア（ここに銘柄コードや詳細を書いてください）",
-    height=200,
-    key="input_text",
-    placeholder="ここに情報を入力します。上の「書き方」を選ぶと自動でテンプレートが入ります。"
+with col_input1:
+    input_code = st.text_input("銘柄コード / 社名", placeholder="例：7203 トヨタ、9984 SBG")
+
+with col_input2:
+    # 簡単だけど超重要な項目を追加
+    input_status = st.radio(
+        "現在の状態（ポジション）",
+        ["未保有（これから買いたい）", "保有中（含み益）", "保有中（含み損）", "その他・監視中"],
+        horizontal=True
+    )
+
+input_detail = st.text_area(
+    "ニュース記事のコピペ / 補足・悩みなど",
+    height=150,
+    placeholder="例：この記事を見て気になりました。\n例：決算が悪かったので売るか迷っています。（ニュース記事をそのまま貼り付けてもOK！）"
 )
 
 # プロンプト生成ボタン
 if st.button("🚀 プロンプトを生成する（ここをクリック）", type="primary", use_container_width=True):
-    if input_text:
+    # 少なくとも何か情報があればOKとする
+    if input_code or input_detail:
         final_request = ""
+        
+        # 質問文の構築
+        parts = []
         if selected_question_body:
-            final_request = f"### 主な質問内容\n{selected_question_body}\n\n### 対象・補足情報\n{input_text}"
-        else:
-            final_request = input_text
+            parts.append(f"### 主な質問内容\n{selected_question_body}")
+        
+        if input_code:
+            parts.append(f"### 対象銘柄\n{input_code}")
+            
+        parts.append(f"### 現在の状態\n{input_status}")
+        
+        if input_detail:
+            parts.append(f"### ニュース・補足情報\n{input_detail}")
+            
+        final_request = "\n\n".join(parts)
             
         prompt = f"""
 # 命令書
@@ -329,4 +317,4 @@ if st.button("🚀 プロンプトを生成する（ここをクリック）", t
         st.info("👆 右上のコピーボタンを押して、ChatGPTやClaudeに貼り付けてください。")
         
     else:
-        st.error("⚠️ 「入力エリア」に情報が入っていません！フヤにゃん、何について考えればいいか分からないにゃ…。")
+        st.error("⚠️ 「銘柄コード」か「ニュース/補足」のどちらかは入力してください！フヤにゃん困っちゃうにゃ。")
