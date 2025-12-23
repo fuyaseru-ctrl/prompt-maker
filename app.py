@@ -3,15 +3,35 @@ import streamlit as st
 # --- ページ設定 ---
 st.set_page_config(page_title="AIプロンプト製造機", page_icon="🚀", layout="wide")
 
-# --- セッション状態の初期化（ボタンでのモード切替用） ---
+# --- セッション状態の初期化 ---
 if 'mode' not in st.session_state:
     st.session_state.mode = "📈 売買・エントリー"
+if 'input_text' not in st.session_state:
+    st.session_state.input_text = ""
 
 # --- 関数：モード切替 ---
 def set_mode(new_mode):
     st.session_state.mode = new_mode
 
-# --- キャラクター定義（さらに20人追加！計60人規模） ---
+# --- 関数：テンプレート挿入 ---
+def update_text_area():
+    selection = st.session_state.template_selector
+    
+    # テンプレートの定義
+    templates = {
+        "（自由入力・空白）": "",
+        "📝 個別株（チャート・売買相談）": "【銘柄名/コード】\n\n【検討中の足種】日足・週足・5分足\n【現在の状況】上昇トレンド・保ち合い・下落中\n【気になっている点】\n",
+        "💰 保有株（損切り・利確・ナンピン）": "【銘柄名/コード】\n\n【取得単価】 円\n【現在の株価】 円\n【保有株数】 株\n【現在の損益】含み益・含み損\n【悩み・相談】\n",
+        "📰 ニュース・材料分析": "【銘柄名/コード】\n\n【ニュースのタイトル】\n\n【ニュースの内容（コピペ）】\n\n【自分の解釈・疑問】\n",
+        "🏢 決算・業績分析": "【銘柄名/コード】\n\n【決算期】Q1・Q2・Q3・本決算\n【発表された数字】売上高+〇%、営業益-〇%\n【コンセンサス予想との比較】良かった・悪かった\n【市場の反応】PTSで上昇・下落\n",
+        "🌏 市場全体・指数の相談": "【対象】日経平均・TOPIX・マザーズ・ドル円\n【期間】短期・中期・長期\n【気になっているニュース】米国の金利・雇用統計など\n"
+    }
+    
+    # 選択されたテンプレートをテキストエリアにセット
+    if selection in templates:
+        st.session_state.input_text = templates[selection]
+
+# --- キャラクター定義（計60人規模） ---
 chars_entry = [
     "順張り隊長（上昇トレンドの初動しか狙わない）",
     "逆張り名人（暴落のリバウンド狙い専門）",
@@ -24,7 +44,6 @@ chars_entry = [
     "低位株ギャンブラー（一発逆転の大相場狙い）",
     "IPOセカンダリー専門家（上場直後の値動き攻略）",
     "出来高ウォッチャー（バイイングクライマックスを見抜く）",
-    # 追加キャラ
     "窓埋めハンター（開いた窓は必ず閉まると信じる）",
     "V字回復信者（底打ちからの急騰しか見ない）",
     "ボックス相場師（レンジ上限売り・下限買いの機械）",
@@ -44,7 +63,6 @@ chars_manage = [
     "ルール厳守の鬼軍曹（感情による売買を許さない）",
     "建玉操作の魔術師（うねり取り・分割売買のプロ）",
     "相場ノート添削係（負けたトレードから反省点を抽出）",
-    # 追加キャラ
     "トレーリングストップ使い（利益を極限まで伸ばす）",
     "ピラミッティング建築家（増し玉で利益を最大化）",
     "ドローダウン抑制係（資産曲線を滑らかに保つ）",
@@ -63,7 +81,6 @@ chars_analysis = [
     "円安・円高メリット判定員（為替感応度を分析）",
     "機関投資家のプロファイラー（大口の手口を推測）",
     "上級者専用ツッコミ役（「その前提、甘くない？」）",
-    # 追加キャラ
     "キャッシュフロー探偵（営業CFの推移しか信じない）",
     "含み資産ハンター（不動産や保有株の価値を暴く）",
     "経済の堀（Moat）鑑定士（独占的強みがあるか見る）",
@@ -80,15 +97,12 @@ chars_emergency = [
     "増資・悪材料の解説員（希薄化懸念と今後の展開を読む）",
     "地合い番長（日経平均・マザーズの空気だけ読む）",
     "有事の金・原油番人（コモディティ関連の専門家）",
-    # 追加キャラ
     "ブラックスワン理論家（想定外の事態への対処）",
     "ストップ安スナイパー（剥がれた瞬間を狙う）",
     "物言う株主フォロワー（アクティビストの思惑を読む）"
 ]
 
-# --- 質問テンプレート定義（時間軸を追加！） ---
-
-# 共通の時間軸テンプレート
+# --- 質問テンプレート定義 ---
 q_time_horizon = [
     "【短中期】1ヶ月〜3ヶ月の見通しと戦略は？",
     "【中期】3ヶ月〜半年の株価推移シナリオは？",
@@ -97,7 +111,6 @@ q_time_horizon = [
     "【超長期】3年以上のガチホ（長期保有）目線でどう？"
 ]
 
-# 各モード用テンプレート
 q_entry_short = [
     "この株、デイトレ目線で今入っていい？",
     "明日の寄り付きは「買い」？それとも「様子見」？",
@@ -168,15 +181,14 @@ q_emergency_earnings = [
     "来期のガイダンス（業績予想）は弱気になりそう？"
 ]
 
-
 # --- ターゲット設定 ---
 target_audience = "株式投資に取り組む個人投資家（年齢層高め・経験豊富・実益重視）。表面的な情報よりも、具体的な根拠や示唆に富んだ内容、相場格言や経験則を好む。"
 
-# --- メインエリア：ボタン式ナビゲーション ---
+# --- メインエリア ---
 st.title("🚀 AIプロンプト製造機")
 st.write("▼ まずは「やりたいこと」のボタンを押してください！")
 
-# 4つのボタンを横並びに配置
+# モード選択ボタン
 col_nav1, col_nav2, col_nav3, col_nav4 = st.columns(4)
 
 with col_nav1:
@@ -192,7 +204,7 @@ with col_nav4:
     if st.button("🚑 緊急・特別対応", use_container_width=True):
         set_mode("🚑 緊急・特別対応")
 
-# 現在のモード表示（視覚的にわかりやすく）
+# 現在モード表示
 st.markdown(f"""
 <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff4b4b; margin-top: 10px; margin-bottom: 20px;">
     <h3 style="margin:0; color: #31333F;">現在選択中のモード：{st.session_state.mode}</h3>
@@ -200,12 +212,10 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# --- ロジック関数：コンテンツ取得 ---
+# --- ロジック関数 ---
 def get_prompt_content(mode_name):
     char_list = []
-    template_groups = {} # { "グループ名": [質問リスト] }
-    
-    # 共通して「時間軸」を入れるかどうか判断（緊急時以外は入れる）
+    template_groups = {}
     include_time_horizon = True
 
     if mode_name == "📈 売買・エントリー":
@@ -228,13 +238,12 @@ def get_prompt_content(mode_name):
         }
     elif mode_name == "🚑 緊急・特別対応":
         char_list = chars_emergency
-        include_time_horizon = False # 緊急時は時間軸より「今」なので
+        include_time_horizon = False
         template_groups = {
             "🚨 暴落・ショック対応": q_emergency_crash,
             "📅 決算シーズン対応": q_emergency_earnings
         }
 
-    # 時間軸テンプレートを追加（緊急時以外）
     if include_time_horizon:
         template_groups["⏱ 時間軸別・見通し"] = q_time_horizon
 
@@ -246,42 +255,57 @@ current_chars, current_templates = get_prompt_content(st.session_state.mode)
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    # キャラクター選択
     selected_role = st.selectbox("1. 担当者（キャラクター）を選んでください", current_chars)
 
 with col2:
-    # 質問テンプレート選択（グループ化）
     template_options = ["（自分で入力する）"]
     for group_name, q_list in current_templates.items():
         for q in q_list:
             template_options.append(f"【{group_name}】 {q}")
-            
     selected_template_raw = st.selectbox("2. 質問したいことをリストから選べます", template_options)
 
-# 質問文の抽出
+# 質問文抽出
 selected_question_body = ""
 if selected_template_raw != "（自分で入力する）":
     selected_question_body = selected_template_raw.split("】 ")[1]
 
-# 自由入力エリア
-input_text = st.text_area(
-    "3. 銘柄名やニュース、補足情報を入力してください（必須）",
-    height=150,
-    placeholder="例：7203 トヨタ。日足チャートを見て迷っています。\n例：決算が出たので分析してほしい。内容は以下の通り...",
-    value=""
+# --- 補足情報の入力サポート機能（追加！） ---
+st.markdown("---")
+st.write("3. 銘柄名やニュース、補足情報を入力してください（必須）")
+
+# テンプレート選択プルダウン
+input_template_options = [
+    "（自由入力・空白）",
+    "📝 個別株（チャート・売買相談）",
+    "💰 保有株（損切り・利確・ナンピン）",
+    "📰 ニュース・材料分析",
+    "🏢 決算・業績分析",
+    "🌏 市場全体・指数の相談"
+]
+st.selectbox(
+    "💡 何を書けばいいか迷ったら、ここから書き方を選んでください！",
+    input_template_options,
+    key="template_selector",
+    on_change=update_text_area
 )
 
-# 生成ボタン
+# テキストエリア（session_stateと連携）
+input_text = st.text_area(
+    "入力エリア（ここに銘柄コードや詳細を書いてください）",
+    height=200,
+    key="input_text",
+    placeholder="ここに情報を入力します。上の「書き方」を選ぶと自動でテンプレートが入ります。"
+)
+
+# プロンプト生成ボタン
 if st.button("🚀 プロンプトを生成する（ここをクリック）", type="primary", use_container_width=True):
     if input_text:
-        # 質問文の結合
         final_request = ""
         if selected_question_body:
             final_request = f"### 主な質問内容\n{selected_question_body}\n\n### 対象・補足情報\n{input_text}"
         else:
             final_request = input_text
             
-        # プロンプト作成
         prompt = f"""
 # 命令書
 あなたは「{selected_role}」になりきってください。
@@ -305,4 +329,4 @@ if st.button("🚀 プロンプトを生成する（ここをクリック）", t
         st.info("👆 右上のコピーボタンを押して、ChatGPTやClaudeに貼り付けてください。")
         
     else:
-        st.error("⚠️ 「3. 銘柄名や補足情報」を入力してください！フヤにゃん困っちゃうにゃ。")
+        st.error("⚠️ 「入力エリア」に情報が入っていません！フヤにゃん、何について考えればいいか分からないにゃ…。")
