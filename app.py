@@ -164,8 +164,150 @@ q_analysis_biz = [
     "PER・PBRから見て、今は割安？割高？",
     "中期経営計画の目標達成は現実的？"
 ]
+
+# ここがエラーの原因だった箇所！修正済みです
 q_emergency_crash = [
     "暴落中！今すぐ逃げるべき？それとも拾うべき？",
     "セリングクライマックス（大底）の兆候はある？",
     "追証回避のために、どこまで下がったらヤバい？",
-    "この悪材料（不祥事など）、どこまで
+    "この悪材料（不祥事など）、どこまで下がる？",
+    "円高（円安）が急に進んだ。この株にプラス？マイナス？"
+]
+q_emergency_earnings = [
+    "決算発表またぎ、勝負してもいい？（リスク判定）",
+    "コンセンサス（市場予想）を超えられそう？",
+    "好決算なのに暴落する「出尽くし売り」の可能性は？",
+    "悪決算でも「悪材料出尽くし」で上がる可能性は？"
+]
+
+target_audience = "株式投資に取り組む個人投資家（年齢層高め・経験豊富・実益重視）。表面的な情報よりも、具体的な根拠や示唆に富んだ内容、相場格言や経験則を好む。"
+
+# --- メインエリア：UI ---
+st.title("🚀 AIプロンプト製造機")
+st.write("▼ まずは「やりたいこと」のボタンを押してください！")
+
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    if st.button("📈 売買・エントリー", type="primary" if st.session_state.mode == "📈 売買・エントリー" else "secondary", use_container_width=True):
+        set_mode("📈 売買・エントリー")
+with col2:
+    if st.button("🛡️ 管理・メンタル", type="primary" if st.session_state.mode == "🛡️ 管理・メンタル" else "secondary", use_container_width=True):
+        set_mode("🛡️ 管理・メンタル")
+with col3:
+    if st.button("📊 分析・ファンダ", type="primary" if st.session_state.mode == "📊 分析・ファンダ" else "secondary", use_container_width=True):
+        set_mode("📊 分析・ファンダ")
+with col4:
+    if st.button("🚑 緊急・特別対応", type="primary" if st.session_state.mode == "🚑 緊急・特別対応" else "secondary", use_container_width=True):
+        set_mode("🚑 緊急・特別対応")
+
+st.markdown(f"""
+<div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+    <b>現在選択中：{st.session_state.mode}</b>
+</div>
+""", unsafe_allow_html=True)
+
+def get_prompt_content(mode_name):
+    char_list = []
+    template_groups = {}
+    include_time = True
+    if mode_name == "📈 売買・エントリー":
+        char_list = chars_entry
+        template_groups = {"短期・デイトレ": q_entry_short, "スイング": q_entry_swing}
+    elif mode_name == "🛡️ 管理・メンタル":
+        char_list = chars_manage
+        template_groups = {"資金・リスク管理": q_manage_risk}
+    elif mode_name == "📊 分析・ファンダ":
+        char_list = chars_analysis
+        template_groups = {"業績・ファンダ": q_analysis_biz}
+    elif mode_name == "🚑 緊急・特別対応":
+        char_list = chars_emergency
+        include_time = False
+        template_groups = {"暴落対応": q_emergency_crash, "決算対応": q_emergency_earnings}
+    if include_time:
+        template_groups["⏱ 時間軸別"] = q_time_horizon
+    return char_list, template_groups
+
+current_chars, current_templates = get_prompt_content(st.session_state.mode)
+
+c_char, c_quest = st.columns(2)
+with c_char:
+    selected_role = st.selectbox("1. 担当者（キャラクター）", current_chars)
+with c_quest:
+    template_options = []
+    for group_name, q_list in current_templates.items():
+        for q in q_list:
+            template_options.append(f"【{group_name}】 {q}")
+    selected_template_raw = st.selectbox("2. 質問リスト（タップで選択肢が出ます）", template_options, index=None, placeholder="▼ 質問のひな形を選ぶならここをタップ")
+
+selected_question_body = ""
+if selected_template_raw:
+    selected_question_body = selected_template_raw.split("】 ")[1]
+
+st.markdown("---")
+st.write("3. 必要な情報を入力してください")
+
+col_in1, col_in2 = st.columns([1, 2])
+with col_in1:
+    input_code_raw = st.text_input("銘柄コード / 社名", placeholder="例：7203、ソニー")
+    input_code = to_half_width(input_code_raw)
+with col_in2:
+    st.write("現在の状態（ポジション）")
+    pos1, pos2, pos3, pos4 = st.columns(4)
+    def btn_type(label): return "primary" if st.session_state.status == label else "secondary"
+    if pos1.button("未保有\n(買いたい)", type=btn_type("未保有（これから買いたい）"), use_container_width=True): set_status("未保有（これから買いたい）")
+    if pos2.button("保有中\n(含み益)", type=btn_type("保有中（含み益）"), use_container_width=True): set_status("保有中（含み益）")
+    if pos3.button("保有中\n(含み損)", type=btn_type("保有中（含み損）"), use_container_width=True): set_status("保有中（含み損）")
+    if pos4.button("その他\n(監視中)", type=btn_type("その他・監視中"), use_container_width=True): set_status("その他・監視中")
+
+with st.expander("🐉 株ドラゴンからデータを取得"):
+    dragon_mode = st.selectbox("ランキング選択", ["値上がり率", "値下がり率", "ストップ高", "ストップ安", "窓開け（上昇）", "窓開け（下落）"])
+    if st.button("データを読み込む"):
+        with st.spinner("取得中..."):
+            st.session_state.scraped_text = fetch_kabudragon_data(dragon_mode)
+
+input_detail = st.text_area(
+    "ニュース記事のコピペ / 補足・悩みなど",
+    height=200,
+    placeholder="例：決算が悪かったので売るか迷っています。（ここに株ドラゴンのデータも入ります）",
+    value=st.session_state.scraped_text
+)
+
+# 4. 生成ボタン
+if st.button("🚀 プロンプトを生成する（ここをクリック）", type="primary", use_container_width=True):
+    if input_code or input_detail:
+        final_request = ""
+        parts = []
+        if selected_question_body: parts.append(f"### 主な質問\n{selected_question_body}")
+        if input_code: parts.append(f"### 対象銘柄\n{input_code}")
+        parts.append(f"### 現在の状態\n{st.session_state.status}")
+        if input_detail: parts.append(f"### ニュース・補足\n{input_detail}")
+        final_request = "\n\n".join(parts)
+        
+        prompt = f"""
+# 命令書
+あなたは「{selected_role}」になりきってください。
+以下のターゲットに向けた、最高品質の回答を出力してください。
+
+## ターゲット読者
+{target_audience}
+
+## 依頼内容
+{final_request}
+
+## 制約条件
+- **文体**: キャラクターの性格を反映しつつ、投資家として納得感のあるプロの口調
+- **内容**: 初心者向けの薄い内容ではなく、実践的で深みのある洞察を含めること
+- **出力形式**: 読みやすいマークダウン形式（重要な数字や結論は太字にする）
+
+## 出力
+"""
+        st.success("✨ 完成！")
+        st.code(prompt, language="markdown")
+        st.info("👆 コピーしてAIに貼り付けてね！")
+    else:
+        # 画像ファイル名を「image_6.png.png」に合わせて修正したよ！
+        col_img, col_msg = st.columns([1, 4])
+        with col_img:
+            st.image("image_6.png.png", width=120)
+        with col_msg:
+            st.error("⚠️ 「銘柄コード」か「ニュース/補足」のどちらかは入力してください！フヤにゃん困っちゃうにゃ。")
