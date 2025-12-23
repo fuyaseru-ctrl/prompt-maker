@@ -30,14 +30,12 @@ def change_status(new_status):
 
 # --- 関数：株ドラゴン取得（ジワ上げ特化版） ---
 def fetch_kabudragon_data(url_type):
-    # URLリスト（ジワ上げ発掘を最優先に！）
     urls = {
         "💎 出来高急増（ジワ上げ発掘）": "https://www.kabudragon.com/ranking/dekizou.html",
         "値上がり率ランキング": "https://www.kabudragon.com/ranking/up/",
         "ストップ高": "https://www.kabudragon.com/ranking/stopup/",
         "5日間暴落（リバウンド狙い）": "https://www.kabudragon.com/ranking/5down/"
     }
-    
     target_url = urls.get(url_type)
     if not target_url: return "URLエラー"
     
@@ -48,11 +46,9 @@ def fetch_kabudragon_data(url_type):
         dfs = pd.read_html(response.text)
         
         if dfs:
-            # 上位30件に絞り込み
             df_top30 = dfs[0].head(30)
             markdown_table = df_top30.to_markdown(index=False)
             
-            # データの種類に応じた「AIへの指示」を自動作成
             instruction = ""
             if url_type == "💎 出来高急増（ジワ上げ発掘）":
                 instruction = """
@@ -70,7 +66,7 @@ def fetch_kabudragon_data(url_type):
     except Exception as e:
         return f"取得失敗: {e}"
 
-# --- キャラクター定義（50体フルセット） ---
+# --- キャラクター定義 ---
 chars_entry = [
     "【🟩 売買】短期売買コーチ（デイトレ・スキャルピング指導）",
     "【🟩 売買】スイング職人（数日〜数週間の波乗り）",
@@ -271,10 +267,9 @@ with c_in2:
     p3.button("保有中\n(含み損)", on_click=change_status, args=("保有中（含み損）",), type=b_type("保有中（含み損）"), use_container_width=True)
     p4.button("その他\n(監視中)", on_click=change_status, args=("その他・監視中",), type=b_type("その他・監視中"), use_container_width=True)
 
-# --- 株ドラゴン（ジワ上げ発掘版） ---
+# --- 株ドラゴン ---
 with st.expander("🐉 株ドラゴンからデータを取得"):
     st.caption("▼ URLからデータを取得し、AIへの分析指示も自動でセットします。")
-    # 選択肢を絞って分かりやすく
     dragon_mode = st.selectbox("ランキング選択", [
         "💎 出来高急増（ジワ上げ発掘）", 
         "値上がり率ランキング", 
@@ -331,6 +326,7 @@ if st.button("🚀 プロンプトを生成する（ここをクリック）", t
         st.code(prompt, language="markdown")
         st.info("👆 コピーしてAIに貼り付けてね！")
     else:
+        # 画像ファイル名を fuya.png に変更して呼び出す！
         c_img, c_msg = st.columns([1, 4])
-        with c_img: st.image("image_6.png.png", width=120)
+        with c_img: st.image("fuya.png", width=120)
         with c_msg: st.error("⚠️ 「銘柄コード」か「ニュース/補足」のどちらかは入力してください！フヤにゃん困っちゃうにゃ。")
