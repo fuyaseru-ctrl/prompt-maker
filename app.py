@@ -3,12 +3,15 @@ import streamlit as st
 # --- ページ設定 ---
 st.set_page_config(page_title="AIプロンプト製造機", page_icon="🚀", layout="wide")
 
-# --- タイトルエリア ---
-st.title("🚀 AIプロンプト製造機")
-st.write("▼ 下のボタンから「やりたいこと」を選んでください。")
+# --- セッション状態の初期化（ボタンでのモード切替用） ---
+if 'mode' not in st.session_state:
+    st.session_state.mode = "📈 売買・エントリー"
 
-# --- 1. キャラクター定義（超拡充版） ---
-# カテゴリごとにリスト化
+# --- 関数：モード切替 ---
+def set_mode(new_mode):
+    st.session_state.mode = new_mode
+
+# --- キャラクター定義（さらに20人追加！計60人規模） ---
 chars_entry = [
     "順張り隊長（上昇トレンドの初動しか狙わない）",
     "逆張り名人（暴落のリバウンド狙い専門）",
@@ -20,7 +23,14 @@ chars_entry = [
     "押し目待ちの達人（調整局面まで絶対手を出さない）",
     "低位株ギャンブラー（一発逆転の大相場狙い）",
     "IPOセカンダリー専門家（上場直後の値動き攻略）",
-    "出来高ウォッチャー（バイイングクライマックスを見抜く）"
+    "出来高ウォッチャー（バイイングクライマックスを見抜く）",
+    # 追加キャラ
+    "窓埋めハンター（開いた窓は必ず閉まると信じる）",
+    "V字回復信者（底打ちからの急騰しか見ない）",
+    "ボックス相場師（レンジ上限売り・下限買いの機械）",
+    "アルゴ追従くん（高速取引の癖を読み取る）",
+    "セクターローテ監視員（資金が流れてくる業種を先回り）",
+    "PTS夜間取引の住人（明日の気配を誰よりも早く読む）"
 ]
 
 chars_manage = [
@@ -33,7 +43,13 @@ chars_manage = [
     "初心者保護官（難しい専門用語を使わず導く）",
     "ルール厳守の鬼軍曹（感情による売買を許さない）",
     "建玉操作の魔術師（うねり取り・分割売買のプロ）",
-    "相場ノート添削係（負けたトレードから反省点を抽出）"
+    "相場ノート添削係（負けたトレードから反省点を抽出）",
+    # 追加キャラ
+    "トレーリングストップ使い（利益を極限まで伸ばす）",
+    "ピラミッティング建築家（増し玉で利益を最大化）",
+    "ドローダウン抑制係（資産曲線を滑らかに保つ）",
+    "アセットアロケーション調整役（現金比率うるさい）",
+    "損出し・節税アドバイザー（年末の損失確定を提案）"
 ]
 
 chars_analysis = [
@@ -46,7 +62,15 @@ chars_analysis = [
     "セクター分析官（半導体・銀行など循環物色を読む）",
     "円安・円高メリット判定員（為替感応度を分析）",
     "機関投資家のプロファイラー（大口の手口を推測）",
-    "上級者専用ツッコミ役（「その前提、甘くない？」）"
+    "上級者専用ツッコミ役（「その前提、甘くない？」）",
+    # 追加キャラ
+    "キャッシュフロー探偵（営業CFの推移しか信じない）",
+    "含み資産ハンター（不動産や保有株の価値を暴く）",
+    "経済の堀（Moat）鑑定士（独占的強みがあるか見る）",
+    "インサイダー監視員（役員の売買動向をチェック）",
+    "貸借倍率ウォッチャー（踏み上げ相場を予知する）",
+    "季節性アノマリー研究家（「セルインメイ」等を考慮）",
+    "マクロ経済リンカー（金利と株価の相関を説く）"
 ]
 
 chars_emergency = [
@@ -55,12 +79,25 @@ chars_emergency = [
     "ショック安専門医（パニック売りの中でお宝を探す）",
     "増資・悪材料の解説員（希薄化懸念と今後の展開を読む）",
     "地合い番長（日経平均・マザーズの空気だけ読む）",
-    "有事の金・原油番人（コモディティ関連の専門家）"
+    "有事の金・原油番人（コモディティ関連の専門家）",
+    # 追加キャラ
+    "ブラックスワン理論家（想定外の事態への対処）",
+    "ストップ安スナイパー（剥がれた瞬間を狙う）",
+    "物言う株主フォロワー（アクティビストの思惑を読む）"
 ]
 
-# --- 2. 質問テンプレート定義（100本ノック級・カテゴリ分け） ---
+# --- 質問テンプレート定義（時間軸を追加！） ---
 
-# 🔴 売買・エントリー用
+# 共通の時間軸テンプレート
+q_time_horizon = [
+    "【短中期】1ヶ月〜3ヶ月の見通しと戦略は？",
+    "【中期】3ヶ月〜半年の株価推移シナリオは？",
+    "【中長期】半年〜1年のターゲット株価は？",
+    "【長期】1年〜3年で持っておく価値はある？",
+    "【超長期】3年以上のガチホ（長期保有）目線でどう？"
+]
+
+# 各モード用テンプレート
 q_entry_short = [
     "この株、デイトレ目線で今入っていい？",
     "明日の寄り付きは「買い」？それとも「様子見」？",
@@ -86,7 +123,6 @@ q_entry_swing = [
     "チャートの形（酒田五法など）から分析して"
 ]
 
-# 🛡️ 管理・メンタル用
 q_manage_risk = [
     "適切な損切り（逆指値）ラインはどこ？",
     "利確の目標値（第一、第二）を計算して",
@@ -100,7 +136,6 @@ q_manage_risk = [
     "「休むも相場」今の地合いは休むべき？"
 ]
 
-# 📊 分析・ファンダ用
 q_analysis_biz = [
     "直近の決算内容を、良い・悪い・中立で評価して",
     "売上高と営業利益の伸び率（成長性）はどう？",
@@ -114,7 +149,6 @@ q_analysis_biz = [
     "中期経営計画の目標達成は現実的？"
 ]
 
-# 🚑 緊急・イベント用
 q_emergency_crash = [
     "暴落中！今すぐ逃げるべき？それとも拾うべき？",
     "セリングクライマックス（大底）の兆候はある？",
@@ -135,25 +169,45 @@ q_emergency_earnings = [
 ]
 
 
-# --- 内部ターゲット設定 ---
+# --- ターゲット設定 ---
 target_audience = "株式投資に取り組む個人投資家（年齢層高め・経験豊富・実益重視）。表面的な情報よりも、具体的な根拠や示唆に富んだ内容、相場格言や経験則を好む。"
 
-# --- メインメニュー（ボタン式ナビゲーション） ---
-# st.radioを横並びにしてボタン風に見せる
-menu = st.radio(
-    "▼ モード選択",
-    ["📈 売買・エントリー", "🛡️ 管理・メンタル", "📊 分析・ファンダ", "🚑 緊急・イベント（特別対応）"],
-    horizontal=True,
-    index=0
-)
+# --- メインエリア：ボタン式ナビゲーション ---
+st.title("🚀 AIプロンプト製造機")
+st.write("▼ まずは「やりたいこと」のボタンを押してください！")
 
-st.markdown("---")
+# 4つのボタンを横並びに配置
+col_nav1, col_nav2, col_nav3, col_nav4 = st.columns(4)
 
-# --- ロジック関数 ---
+with col_nav1:
+    if st.button("📈 売買・エントリー", use_container_width=True):
+        set_mode("📈 売買・エントリー")
+with col_nav2:
+    if st.button("🛡️ 管理・メンタル", use_container_width=True):
+        set_mode("🛡️ 管理・メンタル")
+with col_nav3:
+    if st.button("📊 分析・ファンダ", use_container_width=True):
+        set_mode("📊 分析・ファンダ")
+with col_nav4:
+    if st.button("🚑 緊急・特別対応", use_container_width=True):
+        set_mode("🚑 緊急・特別対応")
+
+# 現在のモード表示（視覚的にわかりやすく）
+st.markdown(f"""
+<div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff4b4b; margin-top: 10px; margin-bottom: 20px;">
+    <h3 style="margin:0; color: #31333F;">現在選択中のモード：{st.session_state.mode}</h3>
+</div>
+""", unsafe_allow_html=True)
+
+
+# --- ロジック関数：コンテンツ取得 ---
 def get_prompt_content(mode_name):
     char_list = []
     template_groups = {} # { "グループ名": [質問リスト] }
     
+    # 共通して「時間軸」を入れるかどうか判断（緊急時以外は入れる）
+    include_time_horizon = True
+
     if mode_name == "📈 売買・エントリー":
         char_list = chars_entry
         template_groups = {
@@ -164,7 +218,7 @@ def get_prompt_content(mode_name):
         char_list = chars_manage
         template_groups = {
             "資金・リスク管理": q_manage_risk,
-            "メンタル・心構え": ["感情的になりそうな時の対処法は？", "プロならこの場面どう考える？"] # 簡易追加
+            "メンタル・心構え": ["感情的になりそうな時の対処法は？", "プロならこの場面どう考える？"]
         }
     elif mode_name == "📊 分析・ファンダ":
         char_list = chars_analysis
@@ -172,28 +226,31 @@ def get_prompt_content(mode_name):
             "業績・ファンダ": q_analysis_biz,
             "材料・テーマ性": ["このニュースのインパクトは？", "国策銘柄と言える？", "特需は一時的？長期的？"]
         }
-    elif mode_name == "🚑 緊急・イベント（特別対応）":
+    elif mode_name == "🚑 緊急・特別対応":
         char_list = chars_emergency
+        include_time_horizon = False # 緊急時は時間軸より「今」なので
         template_groups = {
             "🚨 暴落・ショック対応": q_emergency_crash,
             "📅 決算シーズン対応": q_emergency_earnings
         }
 
+    # 時間軸テンプレートを追加（緊急時以外）
+    if include_time_horizon:
+        template_groups["⏱ 時間軸別・見通し"] = q_time_horizon
+
     return char_list, template_groups
 
 # --- 画面描画 ---
-current_chars, current_templates = get_prompt_content(menu)
+current_chars, current_templates = get_prompt_content(st.session_state.mode)
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.info(f"**選択中のモード：{menu}**")
     # キャラクター選択
     selected_role = st.selectbox("1. 担当者（キャラクター）を選んでください", current_chars)
 
 with col2:
-    # 質問テンプレート選択（グループ化して見やすく）
-    # セレクトボックスを見やすく整形
+    # 質問テンプレート選択（グループ化）
     template_options = ["（自分で入力する）"]
     for group_name, q_list in current_templates.items():
         for q in q_list:
@@ -204,7 +261,6 @@ with col2:
 # 質問文の抽出
 selected_question_body = ""
 if selected_template_raw != "（自分で入力する）":
-    # 【グループ名】を除去
     selected_question_body = selected_template_raw.split("】 ")[1]
 
 # 自由入力エリア
@@ -216,7 +272,7 @@ input_text = st.text_area(
 )
 
 # 生成ボタン
-if st.button("🚀 プロンプトを生成する（ここをクリック）", type="primary"):
+if st.button("🚀 プロンプトを生成する（ここをクリック）", type="primary", use_container_width=True):
     if input_text:
         # 質問文の結合
         final_request = ""
