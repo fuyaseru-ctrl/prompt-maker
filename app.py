@@ -358,17 +358,29 @@ def copy_button_component(text_to_copy):
     """
     components.html(js_code, height=60)
 
-# --- サイドバー（モード選択） ---
+# --- Session State 初期化 ---
+# どのボタンが選ばれているかを記憶する場所を作ります
+if 'selected_mode' not in st.session_state:
+    st.session_state['selected_mode'] = list(MODES.keys())[0]
+
+# --- サイドバー（ボタン式モード選択） ---
 
 st.sidebar.title("🐈 設定")
+st.sidebar.markdown("### 分析モード")
 
-# モード選択
-selected_mode_name = st.sidebar.radio(
-    "分析モード",
-    list(MODES.keys()),
-    index=0
-)
-current_mode_data = MODES[selected_mode_name]
+# ラジオボタンの代わりに、ボタンを並べて表示します
+for mode_name in MODES.keys():
+    # 現在選択されているモードなら「primary（色付き）」、そうでなければ「secondary（白）」
+    button_type = "primary" if st.session_state['selected_mode'] == mode_name else "secondary"
+    
+    # ボタンを押したら、そのモードを記憶する
+    if st.sidebar.button(mode_name, type=button_type, use_container_width=True):
+        st.session_state['selected_mode'] = mode_name
+        st.rerun() # 画面を更新して色を変える
+
+# 選択されたモードのデータを取得
+current_mode_data = MODES[st.session_state['selected_mode']]
+selected_mode_name = st.session_state['selected_mode']
 
 # --- メイン画面 ---
 
@@ -434,19 +446,19 @@ with st.container():
         time_horizon = st.selectbox("時間軸", TIME_HORIZONS)
         status = st.selectbox("現在の状態", STATUS_OPTIONS)
 
-    # 4. 入力エリア（分離しました！）
+    # 4. 入力エリア（分離版）
     st.markdown("👇 **情報入力エリア**")
 
-    # 【新設】証券コード専用欄
+    # 証券コード専用欄
     ticker_input = st.text_input(
         "証券コード / 社名（任意・大文字小文字OK）", 
         placeholder="例：7203, sony（空欄でもOK）"
     )
 
-    # 【変更】詳細テキストエリア
+    # 詳細テキストエリア
     detail_input = st.text_area(
         "ニュース・記事・心の叫び（長文・コピペOK！）",
-        height=300, # 縦幅を広げました！
+        height=300, 
         placeholder="例：\nここにニュース記事を全文貼り付けて、要約してもらうこともできます。\nもちろん自分の考察や悩みを書いてもOK！"
     )
 
@@ -456,8 +468,7 @@ with st.container():
 # --- 生成ロジック ---
 
 if generate_btn:
-    # 銘柄コードの抽出（入力欄が空なら詳細欄から探すロジックもアリですが、今回はシンプルに入力欄を優先）
-    # 入力欄のコードをクリーニング
+    # 銘柄コードの抽出
     explicit_tickers = clean_tickers(ticker_input)
     
     # 両方とも空っぽの場合のみエラー
@@ -465,7 +476,6 @@ if generate_btn:
         st.error("フヤにゃん「にゃーん！何も入力されてないにゃ😿 コードか、記事か、何か入れてほしいにゃ…」")
     else:
         # プロンプト内の「対象銘柄」欄を作る
-        # コード入力があればそれを、なければ「文章内から推測」とする
         target_display = ", ".join(explicit_tickers) if explicit_tickers else "（以下のテキストデータ参照）"
 
         # プロンプト組み立て
