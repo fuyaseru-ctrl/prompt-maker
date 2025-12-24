@@ -7,13 +7,13 @@ import os
 
 # --- ページ設定 ---
 st.set_page_config(
-    page_title="フヤにゃんプロンプト",
+    page_title="フヤセルプロンプト", # タイトル変更！
     page_icon="🐈",
     layout="wide",
     initial_sidebar_state="expanded" 
 )
 
-# --- 定数・データ定義（学習モード追加！） ---
+# --- 定数・データ定義 ---
 
 MODES = {
     "📈 攻め（売買・戦略）": {
@@ -245,9 +245,9 @@ MODES = {
             "最悪、全額失っても生きていける？（生存確認）"
         ]
     },
-    # ▼▼▼ 追加した学習モード ▼▼▼
     "📚 学習（知識・歴史）": {
         "chars": [
+            "【📚 学習】恩株づくりの職人（元本回収のプロ）", # ← 追加！
             "【📚 学習】投資の歴史教授（バブルと暴落の歴史）",
             "【📚 学習】テクニカル分析の教科書（基本から応用）",
             "【📚 学習】ファンダメンタルズの鬼教師（財務諸表）",
@@ -260,6 +260,7 @@ MODES = {
             "【📚 学習】失敗事例アーカイブ（他人の損から学ぶ）"
         ],
         "questions": [
+            "恩株（タダ株）の作り方を教えて（2倍にならなくても作る方法）", # ← 追加！
             "「PER」「PBR」「ROE」をわかりやすく教えて",
             "チャートの「ゴールデンクロス」って本当に効くの？",
             "ローソク足の「酒田五法」について教えて",
@@ -308,7 +309,7 @@ STATUS_OPTIONS = [
     "保有中（含み益でホクホク）",
     "保有中（含み損でツライ）",
     "監視中（チャンス待ち）",
-    "勉強中（ポジションなし）" # 学習モード用に選択肢追加
+    "勉強中（ポジションなし）"
 ]
 
 # --- 関数群 ---
@@ -378,15 +379,18 @@ with col_top_img:
     # 画像ファイル名
     image_file_name = "fuya.png"
     if os.path.exists(image_file_name):
-        # 画像サイズを大きくしました！ (width=220)
-        st.image(image_file_name, width=220)
+        # 画像サイズをさらに大きくしました！ (width=320)
+        st.image(image_file_name, width=320)
     else:
-        st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=120, caption="画像置いてにゃ")
+        st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=150, caption="画像置いてにゃ")
 
 with col_top_title:
-    # タイトルを変更しました！
-    st.title(f"フヤにゃんプロンプト")
-    st.subheader(f"〜 {selected_mode_name.split()[0]}編 〜")
+    # タイトルを「フヤセルプロンプト」に変更
+    st.title(f"フヤセルプロンプト")
+    
+    # ここを修正しました！絵文字だけでなく、文言も入るようにしました。
+    # 例：〜 📈 攻め（売買・戦略）編 〜
+    st.subheader(f"〜 {selected_mode_name}編 〜")
 
 
 # フォームエリア（縦並び）
@@ -410,7 +414,6 @@ with st.container():
         "👆 リストにない場合は自分で設定（入力すると優先されます）",
         placeholder="例：猫語で話すウォーレン・バフェット、とにかく褒めてくれるお母さん など"
     )
-    # 決定ロジック
     final_char = custom_char_input if custom_char_input else selected_char_preset
 
 
@@ -427,7 +430,6 @@ with st.container():
         "👆 リストにない場合は自分で設定（入力すると優先されます）",
         placeholder="例：この銘柄の隠れたリスクを3つ挙げて、次の決算の注目点は？ など"
     )
-    # 決定ロジック
     final_q = custom_q_input if custom_q_input else selected_q_preset
 
 
@@ -442,7 +444,7 @@ with st.container():
     input_text = st.text_area(
         "ここに入力（コード、ニュース、心の叫びなど）",
         height=150,
-        placeholder="例：\n7203 トヨタ\n決算が心配。このまま持ってていい？\n（学習モードなら「PERって何？」だけでもOK！）"
+        placeholder="例：\n7203 トヨタ\n恩株を作りたいけど、何株買えばいい？"
     )
 
     # 5. 生成ボタン
