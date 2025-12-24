@@ -7,7 +7,7 @@ import os
 
 # --- ページ設定 ---
 st.set_page_config(
-    page_title="フヤセルプロンプト", # タイトル変更！
+    page_title="フヤセルプロンプト",
     page_icon="🐈",
     layout="wide",
     initial_sidebar_state="expanded" 
@@ -247,7 +247,7 @@ MODES = {
     },
     "📚 学習（知識・歴史）": {
         "chars": [
-            "【📚 学習】恩株づくりの職人（元本回収のプロ）", # ← 追加！
+            "【📚 学習】恩株づくりの職人（元本回収のプロ）", 
             "【📚 学習】投資の歴史教授（バブルと暴落の歴史）",
             "【📚 学習】テクニカル分析の教科書（基本から応用）",
             "【📚 学習】ファンダメンタルズの鬼教師（財務諸表）",
@@ -260,7 +260,7 @@ MODES = {
             "【📚 学習】失敗事例アーカイブ（他人の損から学ぶ）"
         ],
         "questions": [
-            "恩株（タダ株）の作り方を教えて（2倍にならなくても作る方法）", # ← 追加！
+            "恩株（タダ株）の作り方を教えて（2倍にならなくても作る方法）",
             "「PER」「PBR」「ROE」をわかりやすく教えて",
             "チャートの「ゴールデンクロス」って本当に効くの？",
             "ローソク足の「酒田五法」について教えて",
@@ -379,17 +379,13 @@ with col_top_img:
     # 画像ファイル名
     image_file_name = "fuya.png"
     if os.path.exists(image_file_name):
-        # 画像サイズをさらに大きくしました！ (width=320)
+        # 画像サイズを320に固定！
         st.image(image_file_name, width=320)
     else:
         st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=150, caption="画像置いてにゃ")
 
 with col_top_title:
-    # タイトルを「フヤセルプロンプト」に変更
     st.title(f"フヤセルプロンプト")
-    
-    # ここを修正しました！絵文字だけでなく、文言も入るようにしました。
-    # 例：〜 📈 攻め（売買・戦略）編 〜
     st.subheader(f"〜 {selected_mode_name}編 〜")
 
 
@@ -438,13 +434,20 @@ with st.container():
         time_horizon = st.selectbox("時間軸", TIME_HORIZONS)
         status = st.selectbox("現在の状態", STATUS_OPTIONS)
 
-    # 4. 入力エリア
-    st.markdown("👇 **銘柄コード・ニュース・メモ**")
-    
-    input_text = st.text_area(
-        "ここに入力（コード、ニュース、心の叫びなど）",
-        height=150,
-        placeholder="例：\n7203 トヨタ\n恩株を作りたいけど、何株買えばいい？"
+    # 4. 入力エリア（分離しました！）
+    st.markdown("👇 **情報入力エリア**")
+
+    # 【新設】証券コード専用欄
+    ticker_input = st.text_input(
+        "証券コード / 社名（任意・大文字小文字OK）", 
+        placeholder="例：7203, sony（空欄でもOK）"
+    )
+
+    # 【変更】詳細テキストエリア
+    detail_input = st.text_area(
+        "ニュース・記事・心の叫び（長文・コピペOK！）",
+        height=300, # 縦幅を広げました！
+        placeholder="例：\nここにニュース記事を全文貼り付けて、要約してもらうこともできます。\nもちろん自分の考察や悩みを書いてもOK！"
     )
 
     # 5. 生成ボタン
@@ -453,12 +456,18 @@ with st.container():
 # --- 生成ロジック ---
 
 if generate_btn:
-    tickers = clean_tickers(input_text)
+    # 銘柄コードの抽出（入力欄が空なら詳細欄から探すロジックもアリですが、今回はシンプルに入力欄を優先）
+    # 入力欄のコードをクリーニング
+    explicit_tickers = clean_tickers(ticker_input)
     
-    # 入力が空っぽの場合
-    if not input_text.strip():
-        st.error("フヤにゃん「にゃーん！入力が空っぽだにゃ😿 銘柄コードか、相談したいことを書いてほしいにゃ…」")
+    # 両方とも空っぽの場合のみエラー
+    if not ticker_input.strip() and not detail_input.strip():
+        st.error("フヤにゃん「にゃーん！何も入力されてないにゃ😿 コードか、記事か、何か入れてほしいにゃ…」")
     else:
+        # プロンプト内の「対象銘柄」欄を作る
+        # コード入力があればそれを、なければ「文章内から推測」とする
+        target_display = ", ".join(explicit_tickers) if explicit_tickers else "（以下のテキストデータ参照）"
+
         # プロンプト組み立て
         prompt = f"""
 # あなたへの指令
@@ -470,8 +479,11 @@ if generate_btn:
 - **投資の時間軸**: {time_horizon}
 - **聞きたいこと**: {final_q}
 
-## 対象銘柄・データ・質問詳細
-{input_text}
+## 対象銘柄
+{target_display}
+
+## ニュース・背景データ・心の叫び
+{detail_input}
 
 ## 回答のルール
 1. **結論から書く**: 最初にズバリと回答してください。
