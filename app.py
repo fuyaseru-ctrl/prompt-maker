@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import unicodedata
 import random
 import re
+import os # 画像ファイルの確認に使いますにゃ
 
 # --- ページ設定 ---
 st.set_page_config(
@@ -12,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded" 
 )
 
-# --- 定数・データ定義（50名キャラ・150問そのまま） ---
+# --- 定数・データ定義（50名キャラ・150問） ---
 
 MODES = {
     "📈 攻め（売買・戦略）": {
@@ -272,7 +273,7 @@ def clean_tickers(text):
 
 def copy_button_component(text_to_copy):
     """
-    修正版: 左寄せでサイズ小さめのコピーボタン
+    左寄せでサイズ小さめのコピーボタン
     """
     escaped_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     js_code = f"""
@@ -322,9 +323,29 @@ current_mode_data = MODES[selected_mode_name]
 
 # --- メイン画面 ---
 
-st.title(f"{selected_mode_name.split()[0]} プロンプト製造機")
+# ▼▼▼ ここが変更点ですにゃ！ ▼▼▼
+# タイトル横に画像（fuya.png）を配置するレイアウト
+col_top_img, col_top_title = st.columns([1, 4], gap="medium")
 
-# フォームエリア（縦並びにして段差を解消）
+with col_top_img:
+    # 画像ファイル名
+    image_file_name = "fuya.png"
+    if os.path.exists(image_file_name):
+        # 画像があれば表示（幅はお好みで調整してにゃ）
+        st.image(image_file_name, width=130)
+    else:
+        # なければ仮画像（エラーにならないように）
+        st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=100, caption="画像置いてにゃ")
+
+with col_top_title:
+    # モードによってタイトルが変わります
+    st.title(f"{selected_mode_name.split()[0]} プロンプト製造機")
+    # st.caption("スマホ片手に、サクッと最強の分析指示を作ろうにゃ！") # ←キャプションは削除してスッキリさせました
+
+# ▲▲▲ ここまで ▲▲▲
+
+
+# フォームエリア（縦並び）
 with st.container():
     
     # 1. キャラクター選択エリア
