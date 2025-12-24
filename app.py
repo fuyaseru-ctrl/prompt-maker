@@ -21,6 +21,14 @@ hide_streamlit_style = """
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+# ★ここに「フヤにゃん」を表示！
+# ファイル名が間違っているとエラーになるので注意してね（fuya.png）
+try:
+    st.image("fuya.png", use_container_width=True)
+except Exception:
+    st.warning("※ 画像ファイル 'fuya.png' が見つかりません。GitHubにアップロードしてください。")
+
+
 # -----------------------------
 # 関数群
 # -----------------------------
@@ -180,7 +188,7 @@ with st.expander("★ 評価基準（AI自動判定）", expanded=True):
 
 ※ 理論株価がマイナスの場合や取得できない場合は **評価不能（—）** になります。
 """)
-    # ★追加：ユーザーを救うプルダウン
+    # ユーザーを救うプルダウン
     with st.expander("🤔 「割高」判定ばかり出る...という方へ（クリックで読む）"):
         st.markdown("""
         :red[**※ 割高だから悪いというわけではありません。**]
