@@ -3,17 +3,17 @@ import streamlit.components.v1 as components
 import unicodedata
 import random
 import re
-import os # 画像ファイルの確認に使いますにゃ
+import os
 
 # --- ページ設定 ---
 st.set_page_config(
-    page_title="フヤセルジワジワあつめ",
+    page_title="フヤにゃんプロンプト",
     page_icon="🐈",
     layout="wide",
     initial_sidebar_state="expanded" 
 )
 
-# --- 定数・データ定義（50名キャラ・150問） ---
+# --- 定数・データ定義（学習モード追加！） ---
 
 MODES = {
     "📈 攻め（売買・戦略）": {
@@ -244,6 +244,53 @@ MODES = {
             "今、冷静な判断ができているかチェックして",
             "最悪、全額失っても生きていける？（生存確認）"
         ]
+    },
+    # ▼▼▼ 追加した学習モード ▼▼▼
+    "📚 学習（知識・歴史）": {
+        "chars": [
+            "【📚 学習】投資の歴史教授（バブルと暴落の歴史）",
+            "【📚 学習】テクニカル分析の教科書（基本から応用）",
+            "【📚 学習】ファンダメンタルズの鬼教師（財務諸表）",
+            "【📚 学習】行動経済学の研究者（投資家心理とバイアス）",
+            "【📚 学習】伝説の相場師シミュレーター（古の知恵）",
+            "【📚 学習】金融用語の辞書（わかりやすく解説）",
+            "【📚 学習】マクロ経済の講師（金利・為替と株価）",
+            "【📚 学習】クイズ出題者（理解度チェック）",
+            "【📚 学習】洋書投資本の翻訳家（海外の知恵）",
+            "【📚 学習】失敗事例アーカイブ（他人の損から学ぶ）"
+        ],
+        "questions": [
+            "「PER」「PBR」「ROE」をわかりやすく教えて",
+            "チャートの「ゴールデンクロス」って本当に効くの？",
+            "ローソク足の「酒田五法」について教えて",
+            "「ダウ理論」って何？現代でも通用する？",
+            "機関投資家と個人投資家の決定的な違いは？",
+            "「空売り」の仕組みを子供でもわかるように教えて",
+            "バブル崩壊の前兆にはどんなサインがある？",
+            "リーマンショックの時、市場はどう動いた？",
+            "有名な投資家（バフェット等）の投資哲学を知りたい",
+            "「プロスペクト理論」って投資にどう関係する？",
+            "損切りができない心理（サンクコスト）の克服法は？",
+            "「板読み」の基本的なやり方を教えて",
+            "決算短信のどこを最初に見るべき？",
+            "四季報の読み解き方をレクチャーして",
+            "金利が上がると株価が下がるのはなぜ？",
+            "円安になると株価はどうなる？（メリット・デメリット）",
+            "「インデックス投資」と「個別株投資」の違いは？",
+            "投資信託とETF、どっちがいいの？",
+            "NISAとiDeCo、制度の違いを整理して",
+            "「複利効果」の凄さをシミュレーションして",
+            "「リスク」と「リターン」の関係（シャープレシオ等）は？",
+            "暴落時にやってはいけない行動トップ3は？",
+            "投資初心者が最初に読むべき本を3冊教えて",
+            "自分のリスク許容度を知るための質問をして",
+            "「分散投資」の具体的なポートフォリオ例を見せて",
+            "デイトレードと長期投資、向いている性格は？",
+            "株主優待の仕組みと、権利確定日の注意点は？",
+            "「信用取引」のリスクを具体的に教えて",
+            "IPO（新規公開株）の抽選の仕組みは？",
+            "投資日記（トレード記録）の効果的なつけ方は？"
+        ]
     }
 }
 
@@ -260,7 +307,8 @@ STATUS_OPTIONS = [
     "未保有（これから買いたい）",
     "保有中（含み益でホクホク）",
     "保有中（含み損でツライ）",
-    "監視中（チャンス待ち）"
+    "監視中（チャンス待ち）",
+    "勉強中（ポジションなし）" # 学習モード用に選択肢追加
 ]
 
 # --- 関数群 ---
@@ -309,7 +357,7 @@ def copy_button_component(text_to_copy):
     """
     components.html(js_code, height=60)
 
-# --- サイドバー（モード選択のみ） ---
+# --- サイドバー（モード選択） ---
 
 st.sidebar.title("🐈 設定")
 
@@ -323,7 +371,6 @@ current_mode_data = MODES[selected_mode_name]
 
 # --- メイン画面 ---
 
-# ▼▼▼ ここが変更点ですにゃ！ ▼▼▼
 # タイトル横に画像（fuya.png）を配置するレイアウト
 col_top_img, col_top_title = st.columns([1, 4], gap="medium")
 
@@ -331,18 +378,15 @@ with col_top_img:
     # 画像ファイル名
     image_file_name = "fuya.png"
     if os.path.exists(image_file_name):
-        # 画像があれば表示（幅はお好みで調整してにゃ）
-        st.image(image_file_name, width=130)
+        # 画像サイズを大きくしました！ (width=220)
+        st.image(image_file_name, width=220)
     else:
-        # なければ仮画像（エラーにならないように）
-        st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=100, caption="画像置いてにゃ")
+        st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=120, caption="画像置いてにゃ")
 
 with col_top_title:
-    # モードによってタイトルが変わります
-    st.title(f"{selected_mode_name.split()[0]} プロンプト製造機")
-    # st.caption("スマホ片手に、サクッと最強の分析指示を作ろうにゃ！") # ←キャプションは削除してスッキリさせました
-
-# ▲▲▲ ここまで ▲▲▲
+    # タイトルを変更しました！
+    st.title(f"フヤにゃんプロンプト")
+    st.subheader(f"〜 {selected_mode_name.split()[0]}編 〜")
 
 
 # フォームエリア（縦並び）
@@ -355,17 +399,37 @@ with st.container():
     idx = st.session_state.get('rand_char_idx', 0)
     if idx >= len(current_mode_data["chars"]): idx = 0
     
-    selected_char = st.selectbox(
+    # 既存リストからの選択
+    selected_char_preset = st.selectbox(
         "担当キャラクター",
         current_mode_data["chars"],
         index=idx
     )
+    # カスタム入力
+    custom_char_input = st.text_input(
+        "👆 リストにない場合は自分で設定（入力すると優先されます）",
+        placeholder="例：猫語で話すウォーレン・バフェット、とにかく褒めてくれるお母さん など"
+    )
+    # 決定ロジック
+    final_char = custom_char_input if custom_char_input else selected_char_preset
+
 
     # 2. 質問選択エリア
-    selected_q = st.selectbox(
+    st.markdown("---") # 区切り線で見やすく
+    
+    # 既存リストからの選択
+    selected_q_preset = st.selectbox(
         "聞きたいこと（メイン）",
         current_mode_data["questions"]
     )
+    # カスタム入力
+    custom_q_input = st.text_input(
+        "👆 リストにない場合は自分で設定（入力すると優先されます）",
+        placeholder="例：この銘柄の隠れたリスクを3つ挙げて、次の決算の注目点は？ など"
+    )
+    # 決定ロジック
+    final_q = custom_q_input if custom_q_input else selected_q_preset
+
 
     # 3. 状態・時間軸（任意設定）
     with st.expander("⏱️ 時間軸・ポジション設定（任意）"):
@@ -378,7 +442,7 @@ with st.container():
     input_text = st.text_area(
         "ここに入力（コード、ニュース、心の叫びなど）",
         height=150,
-        placeholder="例：\n7203 トヨタ\n決算が心配。このまま持ってていい？"
+        placeholder="例：\n7203 トヨタ\n決算が心配。このまま持ってていい？\n（学習モードなら「PERって何？」だけでもOK！）"
     )
 
     # 5. 生成ボタン
@@ -396,21 +460,21 @@ if generate_btn:
         # プロンプト組み立て
         prompt = f"""
 # あなたへの指令
-あなたは**「{selected_char}」**です。
+あなたは**「{final_char}」**です。
 その性格、専門性、口調を完璧に再現し、以下のユーザーの相談に乗ってください。
 
 ## ユーザー情報・相談内容
 - **現在の状態**: {status}
 - **投資の時間軸**: {time_horizon}
-- **聞きたいこと**: {selected_q}
+- **聞きたいこと**: {final_q}
 
-## 対象銘柄・データ
+## 対象銘柄・データ・質問詳細
 {input_text}
 
 ## 回答のルール
 1. **結論から書く**: 最初にズバリと回答してください。
 2. **根拠を示す**: なぜそう判断したのか、論理的（または感情的）な理由を述べてください。
-3. **キャラを貫く**: {selected_char.split('】')[1]}として、ターゲット読者に刺さる言葉選びをしてください。
+3. **キャラを貫く**: 指定されたキャラクターとして、ターゲット読者に刺さる言葉選びをしてください。
 4. **形式**: 読みやすいマークダウン形式（重要な数値は**太字**）
 """
         st.session_state.generated_prompt = prompt
