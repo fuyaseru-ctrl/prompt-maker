@@ -359,7 +359,6 @@ def copy_button_component(text_to_copy):
     components.html(js_code, height=60)
 
 # --- Session State 初期化 ---
-# どのボタンが選ばれているかを記憶する場所を作ります
 if 'selected_mode' not in st.session_state:
     st.session_state['selected_mode'] = list(MODES.keys())[0]
 
@@ -370,13 +369,10 @@ st.sidebar.markdown("### 分析モード")
 
 # ラジオボタンの代わりに、ボタンを並べて表示します
 for mode_name in MODES.keys():
-    # 現在選択されているモードなら「primary（色付き）」、そうでなければ「secondary（白）」
     button_type = "primary" if st.session_state['selected_mode'] == mode_name else "secondary"
-    
-    # ボタンを押したら、そのモードを記憶する
     if st.sidebar.button(mode_name, type=button_type, use_container_width=True):
         st.session_state['selected_mode'] = mode_name
-        st.rerun() # 画面を更新して色を変える
+        st.rerun()
 
 # 選択されたモードのデータを取得
 current_mode_data = MODES[st.session_state['selected_mode']]
@@ -384,14 +380,12 @@ selected_mode_name = st.session_state['selected_mode']
 
 # --- メイン画面 ---
 
-# タイトル横に画像（fuya.png）を配置するレイアウト
 col_top_img, col_top_title = st.columns([1, 4], gap="medium")
 
 with col_top_img:
-    # 画像ファイル名
-    image_file_name = "fuya.png"
+    # ▼▼▼ ここを huya.png に変更しました！ ▼▼▼
+    image_file_name = "huya.png"
     if os.path.exists(image_file_name):
-        # 画像サイズを320に固定！
         st.image(image_file_name, width=320)
     else:
         st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=150, caption="画像置いてにゃ")
@@ -411,13 +405,11 @@ with st.container():
     idx = st.session_state.get('rand_char_idx', 0)
     if idx >= len(current_mode_data["chars"]): idx = 0
     
-    # 既存リストからの選択
     selected_char_preset = st.selectbox(
         "担当キャラクター",
         current_mode_data["chars"],
         index=idx
     )
-    # カスタム入力
     custom_char_input = st.text_input(
         "👆 リストにない場合は自分で設定（入力すると優先されます）",
         placeholder="例：猫語で話すウォーレン・バフェット、とにかく褒めてくれるお母さん など"
@@ -426,14 +418,12 @@ with st.container():
 
 
     # 2. 質問選択エリア
-    st.markdown("---") # 区切り線で見やすく
+    st.markdown("---")
     
-    # 既存リストからの選択
     selected_q_preset = st.selectbox(
         "聞きたいこと（メイン）",
         current_mode_data["questions"]
     )
-    # カスタム入力
     custom_q_input = st.text_input(
         "👆 リストにない場合は自分で設定（入力すると優先されます）",
         placeholder="例：この銘柄の隠れたリスクを3つ挙げて、次の決算の注目点は？ など"
@@ -468,17 +458,13 @@ with st.container():
 # --- 生成ロジック ---
 
 if generate_btn:
-    # 銘柄コードの抽出
     explicit_tickers = clean_tickers(ticker_input)
     
-    # 両方とも空っぽの場合のみエラー
     if not ticker_input.strip() and not detail_input.strip():
         st.error("フヤにゃん「にゃーん！何も入力されてないにゃ😿 コードか、記事か、何か入れてほしいにゃ…」")
     else:
-        # プロンプト内の「対象銘柄」欄を作る
         target_display = ", ".join(explicit_tickers) if explicit_tickers else "（以下のテキストデータ参照）"
 
-        # プロンプト組み立て
         prompt = f"""
 # あなたへの指令
 あなたは**「{final_char}」**です。
