@@ -4,6 +4,7 @@ import unicodedata
 import random
 import re
 import os
+import base64
 
 # --- ページ設定 ---
 st.set_page_config(
@@ -12,6 +13,25 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded" 
 )
+
+# --- 画像をHTMLで表示してクリック可能にする関数 ---
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+def clickable_image_html(image_path, width=320):
+    if os.path.exists(image_path):
+        img_base64 = get_base64_of_bin_file(image_path)
+        # 画像をクリックするとページをリロードするリンク（_self）
+        html = f"""
+            <a href="javascript:window.parent.location.reload();" style="text-decoration: none;">
+                <img src="data:image/png;base64,{img_base64}" width="{width}" style="border-radius: 10px; cursor: pointer;" title="クリックで初期化するにゃ！">
+            </a>
+        """
+        return html
+    else:
+        return f'<img src="https://cdn-icons-png.flaticon.com/512/616/616430.png" width="{150}">'
 
 # --- 定数・データ定義 ---
 
@@ -292,6 +312,33 @@ MODES = {
             "IPO（新規公開株）の抽選の仕組みは？",
             "投資日記（トレード記録）の効果的なつけ方は？"
         ]
+    },
+    # ▼▼▼ 新モード追加！ ▼▼▼
+    "📰 記事・ニュース入力": {
+        "chars": [
+            "【📰 記事】要約のプロ（3行でまとめる）",
+            "【📰 記事】辛口コメンテーター（批判的に読む）",
+            "【📰 記事】ポジティブ変換機（良い点を探す）",
+            "【📰 記事】銘柄抽出マシーン（関連銘柄をリスト化）",
+            "【📰 記事】小学生にもわかる解説（平易な言葉で）",
+            "【📰 記事】見出し職人（キャッチーなタイトル作成）",
+            "【📰 記事】フェイクニュース検知器（信憑性チェック）",
+            "【📰 記事】海外記事の翻訳・解説（背景知識補足）",
+            "【📰 記事】議論のファシリテーター（論点整理）",
+            "【📰 記事】フヤにゃん（感想を言う）"
+        ],
+        "questions": [
+            "この記事を3行で要約して",
+            "小学生でもわかるように簡単にして",
+            "記事に出てくる銘柄は「買い」か「売り」か？",
+            "この記事の重要なポイントを3つ挙げて",
+            "筆者の主張に矛盾点はない？",
+            "この記事から読み取れる今後のトレンドは？",
+            "専門用語を解説して",
+            "この記事はポジティブ？ネガティブ？",
+            "次に起こりそうな展開を予測して",
+            "この記事の信憑性は？"
+        ]
     }
 }
 
@@ -365,6 +412,9 @@ if 'selected_mode' not in st.session_state:
 # --- サイドバー（ボタン式モード選択） ---
 
 st.sidebar.title("🐈 設定")
+# ▼▼▼ 閉じるボタンの近くに文字を表示する工夫 ▼▼▼
+st.sidebar.markdown("##### ◀ 閉じる") # ここで位置を示唆します
+st.sidebar.markdown("---")
 st.sidebar.markdown("### 分析モード")
 
 # ラジオボタンの代わりに、ボタンを並べて表示します
@@ -383,10 +433,11 @@ selected_mode_name = st.session_state['selected_mode']
 col_top_img, col_top_title = st.columns([1, 4], gap="medium")
 
 with col_top_img:
-    # ▼▼▼ ここを huya.png に変更しました！ ▼▼▼
+    # ▼▼▼ huya.png をクリック可能にする実装 ▼▼▼
     image_file_name = "huya.png"
     if os.path.exists(image_file_name):
-        st.image(image_file_name, width=320)
+        # HTMLでクリック可能な画像を表示（クリックするとページリロード＝初期化）
+        st.markdown(clickable_image_html(image_file_name), unsafe_allow_html=True)
     else:
         st.image("https://cdn-icons-png.flaticon.com/512/616/616430.png", width=150, caption="画像置いてにゃ")
 
@@ -399,9 +450,17 @@ with col_top_title:
 with st.container():
     
     # 1. キャラクター選択エリア
-    if st.button("🎲 キャラをランダムにする"):
+    col_rand, col_reset = st.columns([1, 1])
+    with col_rand:
+        if st.button("🎲 キャラをランダムにする", use_container_width=True):
             st.session_state['rand_char_idx'] = random.randint(0, len(current_mode_data["chars"]) - 1)
     
+    # ▼▼▼ ページ初期化ボタン追加 ▼▼▼
+    with col_reset:
+        if st.button("🔄 ページを初期化（更新）", type="secondary", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+
     idx = st.session_state.get('rand_char_idx', 0)
     if idx >= len(current_mode_data["chars"]): idx = 0
     
@@ -431,25 +490,42 @@ with st.container():
     final_q = custom_q_input if custom_q_input else selected_q_preset
 
 
-    # 3. 状態・時間軸（任意設定）
-    with st.expander("⏱️ 時間軸・ポジション設定（任意）"):
-        time_horizon = st.selectbox("時間軸", TIME_HORIZONS)
-        status = st.selectbox("現在の状態", STATUS_OPTIONS)
+    # 3. 状態・時間軸（※記事入力モードのときは隠す！）
+    # ▼▼▼ 隠すロジック ▼▼▼
+    is_article_mode = (selected_mode_name == "📰 記事・ニュース入力")
+    
+    status = ""
+    time_horizon = ""
+    target_display = ""
+    explicit_tickers = []
 
-    # 4. 入力エリア（分離版）
+    if not is_article_mode:
+        with st.expander("⏱️ 時間軸・ポジション設定（任意）"):
+            time_horizon = st.selectbox("時間軸", TIME_HORIZONS)
+            status = st.selectbox("現在の状態", STATUS_OPTIONS)
+
+    # 4. 入力エリア
     st.markdown("👇 **情報入力エリア**")
 
-    # 証券コード専用欄
-    ticker_input = st.text_input(
-        "証券コード / 社名（任意・大文字小文字OK）", 
-        placeholder="例：7203, sony（空欄でもOK）"
-    )
+    # ▼▼▼ 証券コード欄（記事モードのときは隠す！） ▼▼▼
+    if not is_article_mode:
+        ticker_input = st.text_input(
+            "証券コード / 社名（任意・大文字小文字OK）", 
+            placeholder="例：7203, sony（空欄でもOK）"
+        )
+        explicit_tickers = clean_tickers(ticker_input)
+        target_display = ", ".join(explicit_tickers) if explicit_tickers else "（以下のテキストデータ参照）"
+    else:
+        # 記事モードの場合、対象銘柄は「記事内の銘柄」とする
+        target_display = "記事・ニュース内に登場する銘柄、または記事そのもの"
 
-    # 詳細テキストエリア
+    # 詳細テキストエリア（ラベルをモードによって変える）
+    area_label = "ニュース記事本文・URL・心の叫び（長文・コピペOK！）" if is_article_mode else "ニュース・記事・心の叫び（長文・コピペOK！）"
+    
     detail_input = st.text_area(
-        "ニュース・記事・心の叫び（長文・コピペOK！）",
+        area_label,
         height=300, 
-        placeholder="例：\nここにニュース記事を全文貼り付けて、要約してもらうこともできます。\nもちろん自分の考察や悩みを書いてもOK！"
+        placeholder="例：\nここにニュース記事を全文貼り付けて、要約してもらうこともできます。\n"
     )
 
     # 5. 生成ボタン
@@ -458,27 +534,31 @@ with st.container():
 # --- 生成ロジック ---
 
 if generate_btn:
-    explicit_tickers = clean_tickers(ticker_input)
+    # 入力チェック（記事モードならdetailのみ、通常なら両方チェック）
+    has_input = detail_input.strip() or (not is_article_mode and explicit_tickers)
     
-    if not ticker_input.strip() and not detail_input.strip():
+    if not has_input:
         st.error("フヤにゃん「にゃーん！何も入力されてないにゃ😿 コードか、記事か、何か入れてほしいにゃ…」")
     else:
-        target_display = ", ".join(explicit_tickers) if explicit_tickers else "（以下のテキストデータ参照）"
-
         prompt = f"""
 # あなたへの指令
 あなたは**「{final_char}」**です。
 その性格、専門性、口調を完璧に再現し、以下のユーザーの相談に乗ってください。
 
 ## ユーザー情報・相談内容
-- **現在の状態**: {status}
+"""
+        # 記事モードかどうかでプロンプト構成を少し変える
+        if not is_article_mode:
+             prompt += f"""- **現在の状態**: {status}
 - **投資の時間軸**: {time_horizon}
-- **聞きたいこと**: {final_q}
+"""
+             
+        prompt += f"""- **聞きたいこと**: {final_q}
 
-## 対象銘柄
+## 対象
 {target_display}
 
-## ニュース・背景データ・心の叫び
+## 入力データ（ニュース・記事・メモ）
 {detail_input}
 
 ## 回答のルール
