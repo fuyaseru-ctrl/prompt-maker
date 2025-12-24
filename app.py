@@ -1,266 +1,408 @@
-# stock_app_st.py
-import re
-import math
-import unicodedata
-from typing import Any, Dict, List, Optional
-import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
+import unicodedata
+import random
+import re
 
-# -----------------------------
-# UI設定
-# -----------------------------
-st.set_page_config(page_title="フヤセルブレイン - AI理論株価分析ツール", page_icon="📈", layout="wide")
+# --- ページ設定 ---
+st.set_page_config(
+    page_title="フヤセルジワジワあつめ",
+    page_icon="🐈",
+    layout="wide",
+    initial_sidebar_state="expanded" 
+)
 
-hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stDeployButton {display:none;}
-            </style>
-            """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# --- 定数・データ定義（50名キャラ・150問そのまま） ---
 
-# ★ここに「フヤにゃん」を表示！
-# ファイル名が間違っているとエラーになるので注意してね（fuya.png）
-try:
-    st.image("fuya.png", use_container_width=True)
-except Exception:
-    st.warning("※ 画像ファイル 'fuya.png' が見つかりません。GitHubにアップロードしてください。")
+MODES = {
+    "📈 攻め（売買・戦略）": {
+        "chars": [
+            "【🟩 売買】短期売買コーチ（デイトレ・スキャル指導）",
+            "【🟩 売買】スイング職人（数日〜数週間の波乗り）",
+            "【🟩 売買】順張り隊長（高値更新こそ買い）",
+            "【🟩 売買】逆張り名人（リバウンド狙いの鬼）",
+            "【🟩 売買】エントリーポイント整理屋（根拠の言語化）",
+            "【🟩 売買】ブレイクアウト狙撃手（保ち合い離れ専門）",
+            "【🟩 売買】イナゴタワー登山家（急騰銘柄の飛び乗り）",
+            "【🟩 売買】IPOセカンダリーハンター（直近上場株専門）",
+            "【🟩 売買】低位株・ボロ株ドリーム勢（一発逆転狙い）",
+            "【🟩 売買】イベント投資家（優待・昇格・TOB先回り）"
+        ],
+        "questions": [
+            "今入っていい？（デイトレ目線）",
+            "明日の寄り付きは「買い」か「様子見」か？",
+            "押し目はどこ？具体的な価格で教えて",
+            "チャートの形的に、上に行きそう？",
+            "適切な損切りラインと利確目標は？",
+            "今の株価位置は「高値圏」か「安値圏」か？",
+            "MACDやRSIなどのオシレーターはどうなってる？",
+            "出来高の推移から怪しい動きはある？",
+            "板の雰囲気（気配値）は強い？弱い？",
+            "5日移動平均線との乖離率はどう？",
+            "ボリンジャーバンドのバンドウォーク中？",
+            "一目均衡表の「雲」の上？下？",
+            "直近の高値をブレイクする勢いはある？",
+            "機関投資家の空売りが入っている可能性は？",
+            "信用買残の整理状況は？（上値は重い？）",
+            "もし買うなら、打診買い？全力買い？",
+            "ナンピンするならどの価格帯？",
+            "ピラミッティング（増し玉）するタイミングは？",
+            "大口投資家が買っている痕跡はある？",
+            "デイトレなら何分足を見るべき？",
+            "VWAP（出来高加重平均）より上か下か？",
+            "PTS（夜間取引）での動きはどう？",
+            "セクター（業種）全体の資金流入はある？",
+            "連動している銘柄（親子上場や同業）の動きは？",
+            "材料出尽くしで売られるパターン？",
+            "窓埋め（Gap fill）を狙うべき？",
+            "週末持ち越し（またぎ）は危険？",
+            "寄り底（朝安く引け高い）の可能性は？",
+            "ストップ高張り付きを狙える勢いはある？",
+            "今のトレンドはいつまで続きそう？"
+        ]
+    },
+    "🛡️ 守り（管理・リスク）": {
+        "chars": [
+            "【🟥 辛口】鬼上司投資顧問（甘え一切なし）",
+            "【🟥 辛口】撤退番長（逃げ遅れ許さない）",
+            "【🟥 辛口】ポジポジ病矯正官（無駄エントリー叱責）",
+            "【🟩 戦略】資金管理マネージャー（破産回避）",
+            "【🟩 戦略】分割利確コーチ（利益確保優先）",
+            "【🟩 戦略】「現金は王様」信者（キャッシュ比率重視）",
+            "【🟩 戦略】ヘッジ取引の魔術師（空売り・オプション活用）",
+            "【🟩 戦略】ポートフォリオ設計士（分散投資の鬼）",
+            "【🟥 辛口】機会損失を嘆く亡霊（買わなかった後悔を説く）",
+            "【🟥 辛口】税金計算・損益通算アドバイザー（年末調整）"
+        ],
+        "questions": [
+            "含み損が辛い。切るべきか耐えるべきか？",
+            "ナンピンしても助かる可能性はある？",
+            "今の資金量に対して、適正なポジション量は？",
+            "この銘柄のリスク要因を全て洗い出して",
+            "最悪のシナリオ（スト安など）への対策は？",
+            "どこで利確するのが一番賢い？（頭と尻尾）",
+            "逆指値（ストップロス）はどこに置くべき？",
+            "トレーリングストップ（追跡逆指値）の幅は？",
+            "今の相場環境でフルインベストメントしていい？",
+            "キャッシュポジション（現金）は何％残すべき？",
+            "他の銘柄との相関関係（共倒れリスク）は？",
+            "配当落ち後の下落リスクは考慮した？",
+            "決算またぎのリスクリワードは合ってる？",
+            "増資懸念（希薄化リスク）はある？",
+            "為替変動（円高・円安）によるダメージは？",
+            "地政学リスクの影響を受ける銘柄？",
+            "信用維持率は安全圏？（追証リスク）",
+            "「頭と尻尾はくれてやる」精神で逃げるべき？",
+            "今のメンタル状態でトレードして大丈夫？",
+            "大損した後のリハビリトレードはどうやる？",
+            "同値撤退（手数料損のみ）で逃げるべき？",
+            "部分利確（半分売るなど）の目安は？",
+            "「噂で買って事実で売る」べきタイミング？",
+            "流動性リスク（売りたい時に売れない）はある？",
+            "監理ポスト・整理ポスト入りの危険性は？",
+            "粉飾決算や不祥事の匂いはしない？",
+            "SNSでの煽り（買い煽り）に騙されてない？",
+            "自分の投資ルールを破っていないか確認して",
+            "年間収支をプラスにするための今の最善手は？",
+            "一度ノーポジションにして頭を冷やすべき？"
+        ]
+    },
+    "📊 分析（業績・ファンダ）": {
+        "chars": [
+            "【🟦 分析】需給探偵（出来高・板・信用残）",
+            "【🟦 分析】材料スナイパー（IR・ニュース初動）",
+            "【🟦 分析】20年選手の日本株アナリスト（王道）",
+            "【🟦 分析】決算職人（短信ガチ読み）",
+            "【🟨 長期】バリュー株査定士（割安度判定）",
+            "【🟦 分析】会社四季報の虫（全号読破・脚注マニア）",
+            "【🟦 分析】マクロ経済学者（金利・為替・国債連動）",
+            "【🟦 分析】インサイダー追跡班（役員売買・自社株買い）",
+            "【🟦 分析】セクターローテ予報士（次の流行業種）",
+            "【🟨 長期】高配当・優待生活の達人（利回り重視）"
+        ],
+        "questions": [
+            "決算内容を、良い・悪い・中立で評価して",
+            "この会社の「稼ぐ力（営業利益率）」はどう？",
+            "PER・PBR・配当利回りから見て割安？",
+            "機関投資家の動きや空売り残高はどうなってる？",
+            "ライバル企業（競合他社）と比較した強みは？",
+            "来期の業績予想（ガイダンス）は保守的？",
+            "コンセンサス（市場予想）を超えそう？",
+            "進捗率は順調？（1Q, 2Q, 3Qの季節性は？）",
+            "貸借対照表（BS）に危ない項目はない？",
+            "キャッシュフロー（CF）は健全に回ってる？",
+            "自己資本比率は安全圏？倒産確率は？",
+            "中期経営計画の達成可能性はどれくらい？",
+            "新しいビジネスモデルや新製品の将来性は？",
+            "円安・円高、どっちがメリットの会社？",
+            "原油高や資源価格の影響は受ける？",
+            "海外売上比率はどれくらい？成長余地は？",
+            "大株主に有名なファンドや投資家はいる？",
+            "自社株買いや増配の余力はある？",
+            "株主優待の廃止リスク（改悪）はある？",
+            "過去のチャートの癖（アノマリー）はある？",
+            "日経平均やTOPIXとの連動性（β値）は？",
+            "「隠れ優良銘柄」としてのポテンシャルは？",
+            "M&Aによる成長、または買収される可能性は？",
+            "社長や経営陣の評判・手腕はどう？",
+            "従業員の口コミ（働きやすさ）は株価に関係する？",
+            "ESG（環境・社会・ガバナンス）への取り組みは？",
+            "特定株（浮動株の少なさ）による値動きの特徴は？",
+            "今の株価は将来の成長を織り込み済み？",
+            "理論株価（フェアバリュー）はいくら？",
+            "10年持ってて枕を高くして眠れる銘柄？"
+        ]
+    },
+    "🔰 初心者・メンタル": {
+        "chars": [
+            "【🟪 初心】投資を噛み砕く先生（図解気分）",
+            "【🟪 メンタル】感情整理カウンセラー（恐怖ケア）",
+            "【🟪 メンタル】「今日は休め」と言う人（休むも相場）",
+            "【🟫 遊び】逆神おじさん（反面教師）",
+            "【🟪 初心】専門用語禁止の優しい先輩",
+            "【🟪 メンタル】褒めちぎり隊長（自己肯定感爆上げ）",
+            "【🟪 初心】歴史の先生（バブルや恐慌の歴史から学ぶ）",
+            "【🟫 遊び】フヤにゃん（ただただ癒やす猫型ロボ）",
+            "【🟪 メンタル】瞑想・マインドフルネス導入係（深呼吸）",
+            "【🟪 初心】積立NISAとの比較お姉さん（長期目線）"
+        ],
+        "questions": [
+            "この銘柄、初心者でも買って大丈夫？",
+            "専門用語が多すぎて分からない！噛み砕いて！",
+            "メンタルがボロボロ。とにかく励まして...",
+            "投資の勉強として、この銘柄から何を学べる？",
+            "私の考え、間違ってないか優しくチェックして",
+            "株価が下がって怖い！どう考えればいい？",
+            "株価が上がって興奮して眠れない！落ち着かせて！",
+            "「押し目」とか「逆張り」って何？",
+            "配当金や優待をもらうにはいつまでに買えばいい？",
+            "100株買うのにいくら必要か計算して！",
+            "NISA枠（成長投資枠）で買うのに向いてる？",
+            "借金して株をやっちゃダメな理由は？",
+            "損切りできない私の背中を押して（優しく）",
+            "利益が出たけど、税金ってどうなるの？",
+            "株主総会って行くと何があるの？",
+            "ニュースを見ても意味不明。何を見ればいい？",
+            "周りが儲かってて焦る。どうすればいい？",
+            "この銘柄、子供に残せるような良い会社？",
+            "ギャンブルと投資の違いを教えて",
+            "1日何回くらい株価チェックすればいい？",
+            "ポジポジ病を治すための精神統一方法は？",
+            "損した分を取り返そうとしちゃダメ？",
+            "プロでも負けることはあるの？",
+            "株主優待だけで生活するって可能なの？",
+            "チャートのローソク足の見方を教えて",
+            "出来高って何？なんで重要なの？",
+            "株価ボードの色の意味（赤・緑）は？",
+            "SNSの「爆益報告」を見て落ち込む必要ある？",
+            "フヤにゃん的に、この銘柄好き？",
+            "明日も株式市場は開いてるの？（休場日確認）"
+        ]
+    },
+    "🚑 緊急・特別対応": {
+        "chars": [
+            "【🟥 辛口】冷徹ファンドPM（数字以外信じない）",
+            "【🟥 辛口】楽観論クラッシャー（最悪を想定）",
+            "【🟨 長期】決算跨ぎ判断役（持ち越すべきか）",
+            "【🟫 遊び】最後に現実を突きつける監督",
+            "【🚑 緊急】外科医・損切りドクター（緊急手術）",
+            "【🚑 緊急】PTS・ADR監視員（夜間の先読み）",
+            "【🚑 緊急】開示情報の弁護士（悪材料の行間を読む）",
+            "【🚑 緊急】流動性パニック対策係（売り抜け判断）",
+            "【🟫 遊び】お祈り投資法の教祖（神頼み）"
+        ],
+        "questions": [
+            "暴落中！今すぐ逃げるべきか、拾うべきか？",
+            "決算またぎ、ギャンブルしてもいい？",
+            "悪材料が出たけど、どこまで下がる（値幅）？",
+            "ストップ安で売れない！明日はどうなる？",
+            "大暴落の歴史（リーマン等）と比べてどう？",
+            "不正会計のニュースが出た！倒産する？",
+            "TOB（公開買付）された！どうすればいい？",
+            "上場廃止が決まったら株はどうなるの？",
+            "追証（おいしょう）が発生しそう！対処法は？",
+            "急騰しすぎて怖い。天井のサインは？",
+            "「監理銘柄」に指定されたけど大丈夫？",
+            "社長が逮捕された！株価への影響は？",
+            "戦争や災害発生！全体相場への影響は？",
+            "サーキットブレイカー発動！どう振る舞う？",
+            "日銀のサプライズ利上げ！銀行株はどうなる？",
+            "為替介入が入った！輸出関連株は逃げるべき？",
+            "増資（公募増資）発表！暴落を拾うべき？",
+            "株主優待の改悪発表！明日売るべき？",
+            "減配（無配転落）発表！見限るべき？",
+            "自社株買い終了のお知らせ…売りサイン？",
+            "逆日歩（品貸料）がすごいことに！買い戻すべき？",
+            "仕手株の最後（ナイアガラ）に巻き込まれた！",
+            "誤発注しちゃった！取り消し間に合う？",
+            "証券会社のサーバーがダウン！どうすれば？",
+            "ログインパスワード忘れた（緊急事態）！",
+            "四季報予想より遥かに悪い決算…どう解釈する？",
+            "コンセンサス未達だけど株価は上がりそう？",
+            "海外ヘッジファンドが売り仕掛けしてる噂は本当？",
+            "今、冷静な判断ができているかチェックして",
+            "最悪、全額失っても生きていける？（生存確認）"
+        ]
+    }
+}
 
+TIME_HORIZONS = [
+    "指定なし",
+    "超短期（デイトレ・当日）",
+    "短期（数日〜数週間）",
+    "中期（数ヶ月〜半年）",
+    "長期（1年〜3年）",
+    "超長期（永久保有）"
+]
 
-# -----------------------------
-# 関数群
-# -----------------------------
-def sanitize_codes(raw_codes: List[str]) -> List[str]:
-    cleaned: List[str] = []
-    for x in raw_codes:
-        if x is None: continue
-        s = str(x).strip()
-        s = unicodedata.normalize('NFKC', s)
-        s = s.upper().replace(" ", "").replace(",", "")
-        if not s: continue
-        m = re.search(r"[0-9A-Z]{4}", s)
-        if m:
-            s = m.group(0)
-            cleaned.append(s)
-    uniq: List[str] = []
-    for c in cleaned:
-        if c not in uniq: uniq.append(c)
-    return uniq
+STATUS_OPTIONS = [
+    "未保有（これから買いたい）",
+    "保有中（含み益でホクホク）",
+    "保有中（含み損でツライ）",
+    "監視中（チャンス待ち）"
+]
 
-def fmt_yen(x: Any) -> str:
-    if x is None: return "—"
-    try:
-        v = float(x)
-        if math.isnan(v): return "—"
-        return f"{v:,.0f} 円"
-    except Exception: return "—"
+# --- 関数群 ---
 
-def fmt_yen_diff(x: Any) -> str:
-    if x is None: return "—"
-    try:
-        v = float(x)
-        if math.isnan(v): return "—"
-        if v >= 0: return f"+{v:,.0f} 円"
-        else: return f"▲ {abs(v):,.0f} 円"
-    except Exception: return "—"
+def clean_tickers(text):
+    if not text: return []
+    normalized_text = unicodedata.normalize('NFKC', text)
+    tokens = re.split(r'[,\s\n]+', normalized_text)
+    return [t.upper() for t in tokens if t]
 
-def fmt_pct(x: Any) -> str:
-    if x is None: return "—"
-    try:
-        v = float(x)
-        if math.isnan(v): return "—"
-        return f"{v:.2f}%"
-    except Exception: return "—"
+def copy_button_component(text_to_copy):
+    """
+    修正版: 左寄せでサイズ小さめのコピーボタン
+    """
+    escaped_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+    js_code = f"""
+    <script>
+    function copyText() {{
+        const textToCopy = `{escaped_text}`;
+        navigator.clipboard.writeText(textToCopy).then(function() {{
+            const btn = document.getElementById("copyBtn");
+            btn.innerText = "✅ コピー完了！";
+            btn.style.backgroundColor = "#e0ffe0";
+            setTimeout(() => {{
+                btn.innerText = "📋 コピーする";
+                btn.style.backgroundColor = "#ffffff";
+            }}, 2000);
+        }});
+    }}
+    </script>
+    <div style="text-align: left; margin-top: 5px;">
+        <button id="copyBtn" onclick="copyText()" style="
+            width: auto;
+            min-width: 140px;
+            background-color: #ffffff; 
+            border: 1px solid #d6d6d8; 
+            border-radius: 6px; 
+            padding: 8px 16px; 
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer; 
+            color: #31333F;">
+            📋 コピーする
+        </button>
+    </div>
+    """
+    components.html(js_code, height=60)
 
-def fmt_market_cap(x: Any) -> str:
-    if x is None: return "—"
-    try:
-        v = float(x)
-        if math.isnan(v): return "—"
-        if v >= 1_000_000_000_000: return f"{v/1_000_000_000_000:.2f} 兆円"
-        elif v >= 100_000_000: return f"{v/100_000_000:.0f} 億円"
-        else: return f"{v:,.0f} 円"
-    except Exception: return "—"
+# --- サイドバー（モード選択のみ） ---
 
-def fmt_big_prob(x: Any) -> str:
-    if x is None: return "—"
-    try:
-        v = float(x)
-        if math.isnan(v): return "—"
-        if v >= 80: return f"🔥 {v:.0f}%"
-        if v >= 60: return f"⚡ {v:.0f}%"
-        if v >= 40: return f"👀 {v:.0f}%"
-        return f"{v:.0f}%"
-    except Exception: return "—"
+st.sidebar.title("🐈 設定")
 
-def calc_rating_from_upside(upside_pct: Optional[float]) -> Optional[int]:
-    if upside_pct is None: return None
-    if upside_pct >= 50: return 5
-    if upside_pct >= 30: return 4
-    if upside_pct >= 15: return 3
-    if upside_pct >= 5: return 2
-    if upside_pct >= 0: return 1
-    return 0
+# モード選択
+selected_mode_name = st.sidebar.radio(
+    "分析モード",
+    list(MODES.keys()),
+    index=0
+)
+current_mode_data = MODES[selected_mode_name]
 
-def to_stars(n: Optional[int]) -> str:
-    if n is None: return "—"
-    n = max(0, min(5, int(n)))
-    return "★" * n + "☆" * (5 - n)
+# --- メイン画面 ---
 
-def _as_float(x: Any) -> Optional[float]:
-    try:
-        if x is None: return None
-        v = float(x)
-        if math.isnan(v): return None
-        return v
-    except Exception: return None
+st.title(f"{selected_mode_name.split()[0]} プロンプト製造機")
 
-def highlight_errors(val):
-    if val == "存在しない銘柄": return 'color: #ff4b4b; font-weight: bold;'
-    return ''
+# フォームエリア（縦並びにして段差を解消）
+with st.container():
+    
+    # 1. キャラクター選択エリア
+    if st.button("🎲 キャラをランダムにする"):
+            st.session_state['rand_char_idx'] = random.randint(0, len(current_mode_data["chars"]) - 1)
+    
+    idx = st.session_state.get('rand_char_idx', 0)
+    if idx >= len(current_mode_data["chars"]): idx = 0
+    
+    selected_char = st.selectbox(
+        "担当キャラクター",
+        current_mode_data["chars"],
+        index=idx
+    )
 
-# -----------------------------
-# データ整形
-# -----------------------------
-def bundle_to_df(bundle: Any, codes: List[str]) -> pd.DataFrame:
-    rows: List[Dict[str, Any]] = []
-    if isinstance(bundle, dict):
-        for code in codes:
-            v = bundle.get(code)
-            if isinstance(v, dict): row = {"ticker": code, **v}
-            else: row = {"ticker": code, "note": "計算結果の形式が想定外です", "value": v}
-            rows.append(row)
+    # 2. 質問選択エリア
+    selected_q = st.selectbox(
+        "聞きたいこと（メイン）",
+        current_mode_data["questions"]
+    )
+
+    # 3. 状態・時間軸（任意設定）
+    with st.expander("⏱️ 時間軸・ポジション設定（任意）"):
+        time_horizon = st.selectbox("時間軸", TIME_HORIZONS)
+        status = st.selectbox("現在の状態", STATUS_OPTIONS)
+
+    # 4. 入力エリア
+    st.markdown("👇 **銘柄コード・ニュース・メモ**")
+    
+    input_text = st.text_area(
+        "ここに入力（コード、ニュース、心の叫びなど）",
+        height=150,
+        placeholder="例：\n7203 トヨタ\n決算が心配。このまま持ってていい？"
+    )
+
+    # 5. 生成ボタン
+    generate_btn = st.button("🚀 プロンプトを生成する", type="primary", use_container_width=True)
+
+# --- 生成ロジック ---
+
+if generate_btn:
+    tickers = clean_tickers(input_text)
+    
+    # 入力が空っぽの場合
+    if not input_text.strip():
+        st.error("フヤにゃん「にゃーん！入力が空っぽだにゃ😿 銘柄コードか、相談したいことを書いてほしいにゃ…」")
     else:
-        rows.append({"ticker": ",".join(codes), "note": "計算結果の形式が想定外です", "value": bundle})
+        # プロンプト組み立て
+        prompt = f"""
+# あなたへの指令
+あなたは**「{selected_char}」**です。
+その性格、専門性、口調を完璧に再現し、以下のユーザーの相談に乗ってください。
+
+## ユーザー情報・相談内容
+- **現在の状態**: {status}
+- **投資の時間軸**: {time_horizon}
+- **聞きたいこと**: {selected_q}
+
+## 対象銘柄・データ
+{input_text}
+
+## 回答のルール
+1. **結論から書く**: 最初にズバリと回答してください。
+2. **根拠を示す**: なぜそう判断したのか、論理的（または感情的）な理由を述べてください。
+3. **キャラを貫く**: {selected_char.split('】')[1]}として、ターゲット読者に刺さる言葉選びをしてください。
+4. **形式**: 読みやすいマークダウン形式（重要な数値は**太字**）
+"""
+        st.session_state.generated_prompt = prompt
+        st.success("生成完了にゃ！下のボタンでコピーして使ってね🐾")
+
+# --- 結果表示エリア ---
+
+if 'generated_prompt' in st.session_state and st.session_state.generated_prompt:
+    st.markdown("---")
+    st.subheader("📝 生成されたプロンプト")
     
-    df = pd.DataFrame(rows)
-    cols = ["name", "weather", "price", "fair_value", "upside_pct", "dividend", "growth", "market_cap", "big_prob", "note"]
-    for col in cols:
-        if col not in df.columns: df[col] = None
+    # 1. 標準コピー
+    st.code(st.session_state.generated_prompt, language="markdown")
     
-    df["price_num"] = df["price"].apply(_as_float)
-    df["fair_value_num"] = df["fair_value"].apply(_as_float)
-    df["upside_pct_num"] = df["upside_pct"].apply(_as_float)
-    df["upside_yen_num"] = df["fair_value_num"] - df["price_num"]
-    df["div_num"] = df["dividend"].apply(_as_float)
-    df["growth_num"] = df["growth"].apply(_as_float)
-    df["mc_num"] = df["market_cap"].apply(_as_float)
-    df["prob_num"] = df["big_prob"].apply(_as_float)
-    
-    df["rating"] = df["upside_pct_num"].apply(calc_rating_from_upside)
-    df["stars"] = df["rating"].apply(to_stars)
-    
-    df["証券コード"] = df["ticker"]
-    df["銘柄名"] = df["name"].fillna("—")
-    df["業績"] = df["weather"].fillna("—")
-    df["現在値"] = df["price"].apply(fmt_yen)
-    df["理論株価"] = df["fair_value"].apply(fmt_yen)
-    df["上昇余地（円）"] = df["upside_yen_num"].apply(fmt_yen_diff)
-    df["上昇余地（％）"] = df["upside_pct_num"].apply(fmt_pct)
-    df["評価"] = df["stars"]
-    df["配当利回り"] = df["div_num"].apply(fmt_pct)
-    df["事業の勢い"] = df["growth_num"].apply(fmt_pct)
-    df["時価総額"] = df["mc_num"].apply(fmt_market_cap)
-    df["大口介入期待度"] = df["prob_num"].apply(fmt_big_prob)
-    df["根拠【グレアム数】"] = df["note"].fillna("")
-    
-    df.index = df.index + 1
-    show_cols = ["証券コード", "銘柄名", "現在値", "理論株価", "上昇余地（％）", "評価", "配当利回り", "事業の勢い", "業績", "時価総額", "大口介入期待度", "根拠【グレアム数】"]
-    return df[show_cols]
-
-# -----------------------------
-# メイン画面
-# -----------------------------
-st.title("📈 フヤセルブレイン - AI理論株価分析ツール")
-st.caption("証券コードを入力すると、理論株価・配当・成長性・大口介入期待度を一括表示します。")
-
-with st.expander("★ 評価基準（AI自動判定）", expanded=True):
-    st.markdown("""
-評価（★）は **上昇余地%** を基準にしています。
-- :red[★★★★★：**お宝**（上昇余地 **+50%** 以上）]
-- ★★★★☆：**激アツ**（上昇余地 **+30%** 〜 +50%）
-- ★★★☆☆：**有望**（上昇余地 **+15%** 〜 +30%）
-- ★★☆☆☆：**普通**（上昇余地 **+5%** 〜 +15%）
-- ★☆☆☆☆：**トントン**（上昇余地 **0%** 〜 +5%）
-- ☆☆☆☆☆：**割高**（上昇余地 **0% 未満**）
-
-※ 理論株価がマイナスの場合や取得できない場合は **評価不能（—）** になります。
-""")
-    # ユーザーを救うプルダウン
-    with st.expander("🤔 「割高」判定ばかり出る...という方へ（クリックで読む）"):
-        st.markdown("""
-        :red[**※ 割高だから悪いというわけではありません。**]
-        むしろ優秀な企業だから株価が理論値をはるかに上回っている可能性もあります。
-        もしお持ちの銘柄で割高判定を受けた場合は、**売り場の模索をするなどの指標**としてお考えくださいませ。
-        """)
-
-st.subheader("🔢 銘柄入力")
-raw_text = st.text_area("分析したい証券コードを入力してください（複数可・改行区切り推奨）", height=150, placeholder="例：\n7203\n9984\n285A\n（Excelなどからコピペも可能です）")
-run_btn = st.button("🚀 AIで分析開始！", type="primary")
-st.divider()
-
-if run_btn:
-    raw_codes = raw_text.split()
-    codes = sanitize_codes(raw_codes)
-    if not codes:
-        st.error("証券コードが入力されていません。")
-        st.stop()
-
-    with st.spinner("分析中…"):
-        try:
-            import fair_value_calc_y4 as fv
-            bundle = fv.calc_fuyaseru_bundle(codes)
-        except Exception as e:
-            st.error(f"計算でエラー：{e}")
-            st.stop()
-
-    df = bundle_to_df(bundle, codes)
-
-    st.subheader("📊 フヤセルブレイン分析結果")
-    styled_df = df.style.map(highlight_errors, subset=["銘柄名"])
-    st.dataframe(styled_df, use_container_width=True)
-
-    info_text = "**※ 評価が表示されない（—）銘柄について**\n\n赤字決算や財務データが不足している銘柄は、\n\n投資リスクの観点から自動的に **「評価対象外」** としています。\n\n具体的な理由は「根拠」の欄をご確認ください。\n\n---\n\n**※ 業績（お天気マーク）の判定基準**\n\n☀ **（優良）**：ROE 8%以上 **かつ** ROA 5%以上（効率性・健全性ともに最強）\n\n☁ **（普通）**：黒字だが、優良基準には満たない（一般的）\n\n☔ **（赤字）**：ROE マイナス（赤字決算）"
-    st.info(info_text, icon="ℹ️")
-
-    with st.expander("📚 【豆知識】理論株価の計算根拠（グレアム数）とは？"):
-        st.markdown("""### 🧙‍♂️ "投資の神様"の師匠が考案した「割安株」の黄金式
-このツールで算出している理論株価は、**「グレアム数」** という計算式をベースにしています。
-これは、あの世界最強の投資家 **ウォーレン・バフェットの師匠** であり、「バリュー投資の父」と呼ばれる **ベンジャミン・グレアム** が考案した由緒ある指標です。
-#### 💡 何がすごいの？
-多くの投資家は「利益（PER）」だけで株を見がちですが、グレアム数は **「企業の利益（稼ぐ力）」** と **「純資産（持っている財産）」** の両面から、その企業が本来持っている **「真の実力値（適正価格）」** を厳しく割り出します。
-> **今の株価 ＜ 理論株価（グレアム数）**
-となっていれば、それは **「実力よりも過小評価されている（バーゲンセール中）」** という強力なサインになります。""")
-
-    with st.expander("🚀 【注目】なぜ「事業の勢い（売上成長率）」を見るの？"):
-        st.markdown("""### 📈 株価を押し上げる"真のエンジン"は売上にあり！
-「利益」は経費削減などで一時的に作れますが、**「売上」** の伸びだけは誤魔化せません。売上が伸びているということは、**「その会社の商品が世の中でバカ売れしている」** という最強の証拠だからです。
-#### 📊 成長スピードの目安（より厳しめのプロ基準）
-- **🚀 +30% 以上**： **【超・急成長】**
-    - 驚異的な伸びです。将来のスター株候補の可能性がありますが、**期待先行で株価が乱高下するリスク**も高くなります。
-- **🏃 +10% 〜 +30%**： **【成長軌道】**
-    - 安定してビジネスが拡大しています。安心して見ていられる優良企業のラインです。
-- **🚶 0% 〜 +10%**： **【安定・成熟】**
-    - 急成長はしていませんが、堅実に稼いでいます。配当狙いの銘柄に多いです。
-- **📉 マイナス**： **【衰退・縮小】**
-    - 去年より売れていません。ビジネスモデルの転換期か、斜陽産業の可能性があります。
-> **💡 分析のポイント**
-> **「赤字 × 急成長」の判断について**
-> 本来、赤字企業は投資対象外ですが、「事業の勢い」が **+30%** を超えている場合は、**「将来のシェア獲得のために、あえて広告や研究に大金を投じている（＝今は赤字を掘っている）」** だけの可能性があります。
-> :red[**ただし、黒字化できないまま倒産するリスクもあるため、上級者向けの「ハイリスク・ハイリターン枠」として慎重に見る必要があります。**]""")
-
-    with st.expander("🌊 ファンドや機関（大口）の\"動き\"を検知する先乗り指標"):
-        st.markdown("""時価総額や出来高の異常検知を組み合わせ、**「大口投資家が仕掛けやすい（買収や買い上げを狙いやすい）条件」** が揃っているかを%で表示します。
-### 🔍 判定ロジック
-**先乗り（先回り）理論、季節性、対角性、テーマ性、ファンド動向、アクティビスト検知、企業成長性など、ニッチ性、株大量保有条件、あらゆる大口介入シグナルを自動で検出する独自ロジックを各項目ごとにポイント制にしてパーセンテージを算出する次世代の指数**
-#### 🎯 ゴールデンゾーン（時価総額 500億〜3000億円）
-機関投資家等が一番動きやすく、TOB（買収）のターゲットにもなりやすい「おいしい規模感」。
-#### 📉 PBR 1倍割れ（バーゲンセール）
-「会社を解散して現金を配った方がマシ」という超割安状態。買収の標的にされやすい。
-#### ⚡ 出来高急増（ボリュームスパイク）
-今日の出来高が、普段の平均より2倍以上ある場合、裏で何かが起きている（誰かが集めている）可能性大！
-**独自の先乗り（先回り）法を完全数値化に成功！**
-:fire: **80%以上は「激アツ」** 何らかの材料（ニュース）が出る前触れか、水面下で大口が集めている可能性があります。
-**大口の買い上げこそ暴騰のチャンスです。この指標もしっかりご確認ください。**""")
+    # 2. 左寄せ小型コピーボタン
+    copy_button_component(st.session_state.generated_prompt)
